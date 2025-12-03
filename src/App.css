@@ -377,11 +377,15 @@ input {
   box-shadow: 0 4px 20px var(--shadow-dark);
   border: 1px solid rgba(212, 175, 55, 0.1);
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Prevent flickering in non-Safari browsers */
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .card:hover {
-  transform: translateY(-8px);
+  transform: translateY(-8px) translateZ(0);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 20px var(--shadow-gold);
   border-color: rgba(212, 175, 55, 0.3);
 }
@@ -544,6 +548,10 @@ input {
   box-sizing: border-box;
   max-width: 100vw;
   overflow-x: hidden;
+  /* Prevent flickering in non-Safari browsers on desktop */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: auto;
 }
 
 .section-full-width .section-title {
@@ -1129,6 +1137,11 @@ input {
     grid-template-columns: 1fr;
     text-align: center;
   }
+  
+  /* Center social media icons on mobile */
+  .social-links {
+    justify-content: center;
+  }
 }
 
 /* Checkout Page Mobile Optimization */
@@ -1380,6 +1393,12 @@ input {
 .d-grid { display: grid; }
 .d-block { display: block; }
 .d-none { display: none; }
+
+/* Gap utility classes */
+.gap-1 { gap: 0.5rem; }
+.gap-2 { gap: 1rem; }
+.gap-3 { gap: 1.5rem; }
+.gap-4 { gap: 2rem; }
 
 .justify-center { justify-content: center; }
 .justify-between { justify-content: space-between; }
@@ -1781,9 +1800,132 @@ select.variation-dropdown option {
   }
   
   /* Contact page mobile */
-  .contact-page .section .d-grid[style*="gridTemplateColumns"] {
+  .contact-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Fix header covering title on contact page mobile */
+  .contact-page .section:first-child {
+    padding-top: 6rem !important;
+    padding-bottom: 2rem !important;
+  }
+  
+  .contact-page .section {
+    padding: 2rem 1rem !important;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+  }
+  
+  /* Force single column layout for contact page on mobile - override inline styles */
+  .contact-page .section .d-grid,
+  .contact-page .section .d-grid[style*="gridTemplateColumns"],
+  .contact-page .section .d-grid[style*="grid-template-columns"],
+  .contact-page .section div.d-grid,
+  .contact-page .section > .d-grid {
+    display: grid !important;
     grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
     gap: 2rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Ensure grid children are properly sized */
+  .contact-page .section .d-grid > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+  
+  .contact-page .section > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden;
+  }
+  
+  .contact-page .card {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden;
+  }
+  
+  .contact-page form {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  .contact-page form input,
+  .contact-page form textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  .contact-page form .d-grid[style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  /* Ensure proper spacing between form inputs on mobile */
+  .contact-page form .d-grid {
+    margin-bottom: 1rem !important;
+  }
+  
+  /* Add spacing to grid children when they stack on mobile */
+  .contact-page form .d-grid > input {
+    margin-bottom: 0 !important;
+  }
+  
+  .contact-page form .d-grid > input:last-child {
+    margin-bottom: 1rem !important;
+  }
+  
+  .contact-page form input[type="text"],
+  .contact-page form input[type="email"],
+  .contact-page form input[type="tel"],
+  .contact-page form textarea {
+    margin-bottom: 1rem !important;
+  }
+  
+  .contact-page .d-flex.gap-2 {
+    flex-direction: column;
+    width: 100%;
+    gap: 1rem !important;
+  }
+  
+  .contact-page .d-flex.gap-2 .btn {
+    width: 100%;
+  }
+  
+  /* Ensure map container doesn't overflow */
+  .contact-page .card > div[ref] {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Ensure all direct children of contact page section are constrained */
+  .contact-page .section .d-grid > div:first-child,
+  .contact-page .section .d-grid > div:last-child {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
   
   /* Checkout page mobile */
@@ -1815,16 +1957,47 @@ select.variation-dropdown option {
 /* Desktop only - Center hero subtexts (except homepage and menu page) */
 @media (min-width: 769px) {
   .about-page .section-title p,
-  .catering-page .section-title p,
   .contact-page .section-title p,
   .gallery-page .section-title p,
   .checkout-page .section-title p {
     text-align: center !important;
   }
   
+  /* Catering page descriptions should be left-aligned on desktop */
+  .catering-page .section-title p {
+    text-align: left !important;
+  }
+  
   /* Menu page category descriptions stay left-aligned on desktop */
   .menu-page .section-title p {
     text-align: left !important;
+  }
+  
+  /* Our Mission section description should be left-aligned on desktop */
+  .about-page .section-full-width .section-title p {
+    text-align: left !important;
+  }
+  
+  /* Contact page buttons spacing on desktop */
+  .contact-page .d-flex.gap-2 {
+    flex-direction: row !important;
+    gap: 1rem !important;
+  }
+  
+  .contact-page .d-flex.gap-2 .btn {
+    width: auto !important;
+  }
+  
+  /* Prevent flickering in about page cards on desktop (non-Safari browsers) */
+  .about-page .section-full-width .card {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    isolation: isolate;
+  }
+  
+  .about-page .section-full-width .d-grid {
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
 }
 

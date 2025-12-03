@@ -12,10 +12,10 @@ const Footer = () => {
             Authentic Sri Lankan cuisine in the heart of Perth. Experience the vibrant flavors of Ceylon.
           </p>
           <div className="social-links">
-            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer">
+            <a href="https://www.facebook.com/nagifoods" target="_blank" rel="noopener noreferrer">
               <FaFacebook />
             </a>
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">
+            <a href="https://www.instagram.com/nagis_ceylon_restaurent" target="_blank" rel="noopener noreferrer">
               <FaInstagram />
             </a>
             <a href="https://twitter.com" target="_blank" rel="noopener noreferrer">
@@ -43,10 +43,11 @@ const Footer = () => {
 
         <div className="footer-section">
           <h3>Opening Hours</h3>
-          <p>Mon-Thu: 10:30 AM - 8:00 PM</p>
+          <p>Mon-Tue: 10:30 AM - 8:00 PM</p>
+          <p>Wednesday: Closed</p>
+          <p>Thu: 10:30 AM - 8:00 PM</p>
           <p>Fri: 10:30 AM - 8:00 PM</p>
           <p>Sat-Sun: 10:00 AM - 8:00 PM</p>
-          <p>Lunch: Fri-Sun 12:00 PM - 3:00 PM</p>
         </div>
       </div>
 
