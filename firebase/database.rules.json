@@ -1,0 +1,29 @@
+{
+  "rules": {
+    "orders": {
+      ".read": true,
+      ".write": true
+    },
+    "menuItems": {
+      ".read": true,
+      ".write": true
+    },
+    "categories": {
+      ".read": true,
+      ".write": true
+    },
+    "stripe": {
+      ".read": true,
+      ".write": true
+    },
+    "orderNumbers": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
+
+
+
+
+
