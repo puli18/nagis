@@ -1,111 +1,86 @@
 # Project Structure Guide
 
-## ✅ Fixed Project Structure
+## ✅ Current Project Structure
 
-The project has been reorganized to eliminate duplicate `node_modules` and consolidate dependencies.
+The project uses Firebase Functions for backend services (no local Express server).
 
-### 🏗️ New Structure
+### 🏗️ Structure
 
 ```
 project-nagis/
-├── package.json              # Main package.json with ALL dependencies
-├── node_modules/             # Single node_modules for entire project
-├── server/
-│   ├── server.js            # Backend server
-│   ├── .env                 # Server environment variables
-│   ├── package.json         # Server metadata only (no dependencies)
-│   └── test-*.js           # Server test files
+├── package.json              # Frontend dependencies
+├── node_modules/             # Frontend dependencies
+├── firebase/
+│   └── functions/           # Firebase Cloud Functions
+│       ├── index.js         # Payment and order functions
+│       └── package.json     # Functions dependencies
 ├── src/                     # Frontend React code
 ├── public/                  # Frontend static files
-└── start-servers.sh        # Script to start both servers
+└── README.md                # Project documentation
 ```
 
-### 🔧 What Changed
+## 🚀 How to Start Development
 
-**Before (❌ Problematic):**
-```
-project-nagis/
-├── package.json             # Frontend dependencies only
-├── node_modules/            # Frontend dependencies
-├── server/
-│   ├── package.json         # Server dependencies
-│   ├── node_modules/        # ❌ Duplicate node_modules
-│   └── server.js
-```
-
-**After (✅ Fixed):**
-```
-project-nagis/
-├── package.json             # ALL dependencies (frontend + backend)
-├── node_modules/            # Single node_modules for everything
-├── server/
-│   ├── package.json         # Metadata only (no dependencies)
-│   └── server.js
-```
-
-## 🚀 How to Start Servers
-
-### Option 1: Use the Script
+### Start Frontend
 ```bash
-./start-servers.sh
-```
-
-### Option 2: Use npm Scripts
-```bash
-# Start backend only
-npm run server
-
-# Start frontend only
 npm start
-
-# Start both together (development)
-npm run dev
 ```
 
-### Option 3: Manual Start
-```bash
-# Terminal 1 - Backend
-npm run server
+The frontend will run on http://localhost:3000
 
-# Terminal 2 - Frontend
-npm start
+### Deploy Firebase Functions
+```bash
+cd firebase
+firebase deploy --only functions
+```
+
+For local testing of functions, use Firebase emulators:
+```bash
+firebase emulators:start --only functions
 ```
 
 ## 📦 Dependencies
 
-### Frontend Dependencies
+### Frontend Dependencies (package.json)
 - React, React Router, React Icons
-- Stripe React components
-- Firebase
+- Stripe React components (@stripe/react-stripe-js, @stripe/stripe-js)
+- Firebase SDK
 - Framer Motion
 
-### Backend Dependencies
-- Express, CORS, Helmet
+### Backend Dependencies (firebase/functions/package.json)
+- Firebase Functions SDK
+- Firebase Admin SDK
 - Stripe SDK
-- Rate limiting, Security middleware
-- PostgreSQL (for future database)
-
-### Shared Dependencies
-- dotenv (environment variables)
-- All dependencies are now in the main `package.json`
 
 ## 🔍 Benefits
 
-1. **No Duplicate Dependencies**: Single `node_modules` for everything
-2. **Easier Management**: One place to manage all dependencies
-3. **Smaller Project Size**: Eliminates duplicate packages
-4. **Faster Installation**: Install dependencies once
-5. **Consistent Versions**: No version conflicts between frontend/backend
+1. **Serverless Backend**: No server to manage, Firebase handles scaling
+2. **Simplified Architecture**: Frontend + Firebase Functions only
+3. **Cost Effective**: Pay only for what you use
+4. **Automatic Scaling**: Firebase Functions scale automatically
+5. **Integrated Services**: Firebase Functions work seamlessly with Firebase services
 
 ## 🛠️ Development Workflow
 
 ### Starting Development
 ```bash
-# Install all dependencies (once)
+# Install frontend dependencies
 npm install
 
-# Start both servers in development mode
-npm run dev
+# Start frontend development server
+npm start
+```
+
+### Deploying Functions
+```bash
+# Navigate to firebase directory
+cd firebase
+
+# Install function dependencies (if needed)
+cd functions && npm install && cd ..
+
+# Deploy functions
+firebase deploy --only functions
 ```
 
 ### Production Build
@@ -113,29 +88,19 @@ npm run dev
 # Build frontend
 npm run build
 
-# Start production server
-npm run server
+# Deploy frontend (to your hosting provider)
+# Deploy functions
+cd firebase && firebase deploy --only functions
 ```
 
-### Testing
-```bash
-# Test frontend
-npm test
-
-# Test backend (if you add tests)
-npm run test:server
-```
-
-## 📝 Server Scripts
+## 📝 Available Scripts
 
 ```json
 {
   "scripts": {
     "start": "react-scripts start",        // Frontend development
     "build": "react-scripts build",        // Frontend production build
-    "server": "node server/server.js",     // Backend production
-    "server:dev": "nodemon server/server.js", // Backend development
-    "dev": "concurrently \"npm run server:dev\" \"npm start\"" // Both
+    "test": "react-scripts test"           // Frontend tests
   }
 }
 ```
@@ -147,44 +112,63 @@ npm run test:server
    npm install
    ```
 
-2. **Start both servers:**
+2. **Start frontend:**
    ```bash
-   npm run dev
+   npm start
    ```
 
 3. **Access the application:**
    - Frontend: http://localhost:3000
-   - Backend: http://localhost:3001/health
+   - Backend: Firebase Functions (deployed to Firebase)
 
 ## 🔧 Troubleshooting
 
-### If servers won't start:
+### If frontend won't start:
 ```bash
 # Kill existing processes
-pkill -f "node server"
 pkill -f "react-scripts"
 
-# Clear ports
+# Clear port
 lsof -ti:3000 | xargs kill -9
-lsof -ti:3001 | xargs kill -9
 
 # Restart
-npm run dev
+npm start
 ```
 
 ### If dependencies are missing:
 ```bash
-# Reinstall all dependencies
+# Reinstall frontend dependencies
+rm -rf node_modules package-lock.json
+npm install
+
+# Reinstall function dependencies
+cd firebase/functions
 rm -rf node_modules package-lock.json
 npm install
 ```
 
+### If Firebase Functions won't deploy:
+```bash
+# Check Firebase CLI is installed
+firebase --version
+
+# Login to Firebase
+firebase login
+
+# Set project
+firebase use --add
+
+# Deploy functions
+cd firebase
+firebase deploy --only functions
+```
+
 ## 📊 Project Status
 
-- ✅ **Consolidated Dependencies**: All in one place
-- ✅ **Working Backend**: Server runs from main directory
+- ✅ **Firebase Functions Backend**: Serverless backend deployed
 - ✅ **Working Frontend**: React app starts normally
+- ✅ **Stripe Integration**: Payment processing via Firebase Functions
 - ✅ **Split Payments**: Fixed and working
 - ✅ **Payment Calculations**: Fixed and accurate
 
-The project structure is now clean, efficient, and maintainable! 🎉 
+The project uses a modern serverless architecture with Firebase Functions! 🎉 

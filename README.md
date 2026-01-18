@@ -43,8 +43,8 @@ A modern, mobile-responsive website for Nagi's Ceylon Catering, a Sri Lankan res
 - **Icons**: React Icons (Font Awesome)
 - **State Management**: React Context API
 - **Payment**: Stripe with Connect platform for split payments
-- **Backend**: Node.js/Express with Stripe integration
-- **Database**: Firebase (ready for integration)
+- **Backend**: Firebase Functions (Cloud Functions)
+- **Database**: Firebase Realtime Database
 
 ## Getting Started
 
@@ -74,31 +74,36 @@ A modern, mobile-responsive website for Nagi's Ceylon Catering, a Sri Lankan res
 4. **Open your browser**
    Navigate to [http://localhost:3000](http://localhost:3000)
 
-### Backend Server Setup
+### Firebase Functions Setup
 
-1. **Navigate to server directory**
+The backend uses Firebase Functions for payment processing. To set up:
+
+1. **Install Firebase CLI** (if not already installed)
    ```bash
-   cd server
+   npm install -g firebase-tools
    ```
 
-2. **Install dependencies**
+2. **Login to Firebase**
+   ```bash
+   firebase login
+   ```
+
+3. **Navigate to functions directory**
+   ```bash
+   cd firebase/functions
+   ```
+
+4. **Install dependencies**
    ```bash
    npm install
    ```
 
-3. **Configure environment variables**
+5. **Deploy functions**
    ```bash
-   cp env.example .env
-   # Edit .env with your Stripe keys and configuration
+   firebase deploy --only functions
    ```
 
-4. **Start the backend server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Verify server is running**
-   Navigate to [http://localhost:3001/health](http://localhost:3001/health)
+For more details, see [FIREBASE_FUNCTIONS_SETUP.md](./FIREBASE_FUNCTIONS_SETUP.md)
 
 ### Environment Variables
 
@@ -203,14 +208,13 @@ npm run build
 
 ### Payment Integration
 1. Set up Stripe account and Connect platform
-2. Configure environment variables (see `server/env.example`)
-3. Install backend dependencies: `cd server && npm install`
-4. Start backend server: `npm run dev`
-5. Update frontend with Stripe Elements integration
-6. Test with Stripe test cards
+2. Configure environment variables in Firebase Functions
+3. Deploy Firebase Functions: `cd firebase && firebase deploy --only functions`
+4. Configure Stripe webhook endpoint
+5. Test with Stripe test cards
 
 ### Firebase Integration
-1. Set up Firebase project
+1. Set up Firebase project (already configured)
 2. Add environment variables
 3. Implement order management and user accounts
 

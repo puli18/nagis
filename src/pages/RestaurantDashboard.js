@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ref, onValue, off, update } from 'firebase/database';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { FaPhone, FaTimes, FaPrint, FaUtensils, FaCar, FaHome, FaCheck, FaSignInAlt, FaSignOutAlt, FaBox } from 'react-icons/fa';
+import { FaPhone, FaTimes, FaPrint, FaUtensils, FaCar, FaHome, FaCheck, FaSignInAlt, FaSignOutAlt, FaBox, FaHistory, FaSearch, FaChevronDown, FaChevronUp, FaArrowLeft } from 'react-icons/fa';
 import { realtimeDb, auth } from '../firebase/config';
 
 const RestaurantDashboard = () => {
@@ -18,8 +18,15 @@ const RestaurantDashboard = () => {
     password: ''
   });
   const [currentTime, setCurrentTime] = useState('');
-  const [previousOrderCount, setPreviousOrderCount] = useState(0);
+  const [previousOrderIds, setPreviousOrderIds] = useState(new Set());
   const [showNewOrderNotification, setShowNewOrderNotification] = useState(false);
+  const [viewMode, setViewMode] = useState('today'); // 'today' or 'history'
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState('all');
+  const [historyOrderTypeFilter, setHistoryOrderTypeFilter] = useState('all');
+  const [expandedOrders, setExpandedOrders] = useState(new Set());
+  const [pingingOrders, setPingingOrders] = useState(new Set()); // Orders that are currently pinging
+  const [audioRef, setAudioRef] = useState(null); // Reference to audio element
 
 
   // Authentication state listener
@@ -72,20 +79,43 @@ const RestaurantDashboard = () => {
           orderType: getOrderTypeFromOrder(order),
         })).sort((a, b) => b.timestamp - a.timestamp);
         
-        // Check for new orders and play sound notification
-        const activeOrders = ordersArray.filter(order => order.status !== 'completed');
-        if (activeOrders.length > previousOrderCount && previousOrderCount > 0) {
-          playNewOrderSound();
+        // Check for new orders (only today's orders with pending status)
+        const todayOrders = ordersArray.filter(order => {
+          if (!order.timestamp) return false;
+          const orderDate = new Date(order.timestamp);
+          const today = new Date();
+          return orderDate.toDateString() === today.toDateString() && order.status === 'pending';
+        });
+        
+        const currentOrderIds = new Set(todayOrders.map(order => order.id));
+        const newOrderIds = new Set();
+        
+        // Find truly new orders (only if previousOrderIds is not empty, meaning we've loaded orders before)
+        if (previousOrderIds.size > 0) {
+          currentOrderIds.forEach(id => {
+            if (!previousOrderIds.has(id)) {
+              newOrderIds.add(id);
+            }
+          });
+        }
+        
+        // Add new orders to pinging list (only if they're truly new)
+        if (newOrderIds.size > 0) {
+          setPingingOrders(prev => {
+            const updated = new Set(prev);
+            newOrderIds.forEach(id => updated.add(id));
+            return updated;
+          });
           setShowNewOrderNotification(true);
-          // Hide notification after 5 seconds
           setTimeout(() => setShowNewOrderNotification(false), 5000);
         }
-        setPreviousOrderCount(activeOrders.length);
         
+        // Update previous order IDs
+        setPreviousOrderIds(currentOrderIds);
         setOrders(ordersArray);
       } else {
         setOrders([]);
-        setPreviousOrderCount(0);
+        setPreviousOrderIds(new Set());
       }
       setLoading(false);
     }, (error) => {
@@ -94,42 +124,68 @@ const RestaurantDashboard = () => {
     });
 
     return () => off(ordersRef, 'value', unsubscribe);
-  }, [previousOrderCount]);
+  }, [previousOrderIds]);
 
-  // Function to play new order notification sound
-  const playNewOrderSound = () => {
-    try {
-      // Check if Web Audio API is available
-      if (typeof window.AudioContext !== 'undefined' || typeof window.webkitAudioContext !== 'undefined') {
-        // Create a simple notification sound using Web Audio API
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-        oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
-        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
-        
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.3);
+  // Sync selectedOrder with updated order data when orders change
+  useEffect(() => {
+    if (selectedOrder && orders.length > 0) {
+      const updatedOrder = orders.find(order => order.id === selectedOrder.id);
+      if (updatedOrder) {
+        // Only update if status changed to avoid unnecessary re-renders
+        if (updatedOrder.status !== selectedOrder.status) {
+          setSelectedOrder(updatedOrder);
+        }
+      } else {
+        // Order was deleted, close sidebar
+        setSelectedOrder(null);
+      }
+    } else if (orders.length === 0 && selectedOrder) {
+      // No orders, close sidebar
+      setSelectedOrder(null);
+    }
+  }, [orders, selectedOrder]);
+
+  // Play ping sound continuously for pinging orders
+  useEffect(() => {
+    if (pingingOrders.size > 0) {
+      // Create or reuse audio element
+      let audio = audioRef;
+      if (!audio) {
+        audio = new Audio('/sounds/New Order.mp3');
+        audio.loop = true;
+        audio.volume = 0.7;
+        setAudioRef(audio);
       }
       
-      // Also show a browser notification if permitted
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification('New Order Received!', {
-          body: 'A new order has been placed. Please check the dashboard.',
-          icon: '/favicon.ico'
-        });
+      // Ensure loop is set and audio is ready
+      audio.loop = true;
+      
+      // Only play if not already playing
+      if (audio.paused) {
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.log('Could not play ping sound:', error);
+          });
+        }
       }
-    } catch (error) {
-      console.log('Could not play notification sound:', error);
+    } else {
+      // Stop audio when no pinging orders
+      if (audioRef) {
+        audioRef.pause();
+        audioRef.currentTime = 0;
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pingingOrders.size]);
+
+  // Handle order click - stop pinging for that order
+  const handleOrderClick = (orderId) => {
+    setPingingOrders(prev => {
+      const updated = new Set(prev);
+      updated.delete(orderId);
+      return updated;
+    });
   };
 
   // Function to determine order type from order data
@@ -260,12 +316,63 @@ const RestaurantDashboard = () => {
   }
 
   const updateOrderStatus = async (orderId, newStatus) => {
+    // Store previous status for potential revert
+    const previousStatus = orders.find(order => order.id === orderId)?.status;
+    
+    // Optimistic update - update UI immediately
+    if (selectedOrder && selectedOrder.id === orderId) {
+      setSelectedOrder(prev => ({
+        ...prev,
+        status: newStatus
+      }));
+    }
+    
+    // Update orders array immediately for instant UI feedback
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order.id === orderId ? { ...order, status: newStatus } : order
+      )
+    );
+    
+    // Update Firebase in the background (don't await)
     try {
       const orderRef = ref(realtimeDb, `orders/${orderId}`);
-      await update(orderRef, { status: newStatus });
-      console.log(`Order ${orderId} status updated to ${newStatus}`);
+      update(orderRef, { status: newStatus }).then(() => {
+        console.log(`Order ${orderId} status updated to ${newStatus}`);
+      }).catch(error => {
+        console.error('Error updating order status:', error);
+        // Revert optimistic update on error
+        if (previousStatus) {
+          setOrders(prevOrders => 
+            prevOrders.map(order => 
+              order.id === orderId ? { ...order, status: previousStatus } : order
+            )
+          );
+          if (selectedOrder && selectedOrder.id === orderId) {
+            setSelectedOrder(prev => ({
+              ...prev,
+              status: previousStatus
+            }));
+          }
+          alert('Failed to update order status. Please try again.');
+        }
+      });
     } catch (error) {
       console.error('Error updating order status:', error);
+      // Revert on error
+      if (previousStatus) {
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.id === orderId ? { ...order, status: previousStatus } : order
+          )
+        );
+        if (selectedOrder && selectedOrder.id === orderId) {
+          setSelectedOrder(prev => ({
+            ...prev,
+            status: previousStatus
+          }));
+        }
+      }
     }
   };
 
@@ -342,7 +449,21 @@ const RestaurantDashboard = () => {
     printWindow.print();
   };
 
+  // Helper function to check if order is from today
+  const isToday = (timestamp) => {
+    if (!timestamp) return false;
+    const orderDate = new Date(timestamp);
+    const today = new Date();
+    return orderDate.toDateString() === today.toDateString();
+  };
+
+  // Filter orders based on view mode and filters
   const filteredOrders = orders.filter(order => {
+    // If viewing today's orders, filter by date
+    if (viewMode === 'today' && !isToday(order.timestamp)) {
+      return false;
+    }
+
     // Use the improved order type detection
     let orderTypeMatch = false;
     if (selectedOrderType === 'all') {
@@ -357,12 +478,59 @@ const RestaurantDashboard = () => {
     const statusMatch = selectedStatus === 'all' || order.status === selectedStatus;
     
     // Hide completed orders from main view unless specifically selected
-    if (selectedStatus !== 'completed' && order.status === 'completed') {
+    if (viewMode === 'today' && selectedStatus !== 'completed' && order.status === 'completed') {
       return false;
     }
     
     return orderTypeMatch && statusMatch;
   });
+
+  // Filter orders for history view with search and filters
+  const filteredHistoryOrders = orders.filter(order => {
+    // Search filter
+    if (historySearch) {
+      const searchLower = historySearch.toLowerCase();
+      const matchesSearch = 
+        order.orderNumber?.toLowerCase().includes(searchLower) ||
+        order.customerInfo?.firstName?.toLowerCase().includes(searchLower) ||
+        order.customerInfo?.lastName?.toLowerCase().includes(searchLower) ||
+        order.customerInfo?.phone?.includes(searchLower) ||
+        order.customerInfo?.email?.toLowerCase().includes(searchLower);
+      
+      if (!matchesSearch) return false;
+    }
+
+    // Status filter
+    if (historyStatusFilter !== 'all' && order.status !== historyStatusFilter) {
+      return false;
+    }
+
+    // Order type filter
+    if (historyOrderTypeFilter !== 'all') {
+      if (historyOrderTypeFilter === 'takeaway') {
+        if (order.orderType !== 'takeaway' && order.orderType !== 'pickup') {
+          return false;
+        }
+      } else if (order.orderType !== historyOrderTypeFilter) {
+        return false;
+      }
+    }
+
+    return true;
+  }).sort((a, b) => b.timestamp - a.timestamp);
+
+  // Toggle order expansion in history view
+  const toggleOrderExpansion = (orderId) => {
+    setExpandedOrders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
 
   const getOrderTypeCount = (type) => {
     // Only count active orders (not completed) for order type counts
@@ -479,10 +647,37 @@ const RestaurantDashboard = () => {
       {/* Header */}
       <div className="dashboard-header">
         <div className="header-left">
-          <h1>Restaurant Orders</h1>
-          <p>Manage and track all incoming orders</p>
+          <div>
+            <h1>{viewMode === 'history' ? 'Order History' : 'Restaurant Orders'}</h1>
+            <p>{viewMode === 'history' ? 'View and search through all past orders' : 'Manage and track all incoming orders'}</p>
+          </div>
         </div>
         <div className="header-right">
+          {viewMode === 'today' && (
+            <button
+              onClick={() => setViewMode('history')}
+              style={{
+                marginRight: '1rem',
+                padding: '0.5rem 1rem',
+                backgroundColor: '#d4af37',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.875rem',
+                fontWeight: '500',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#b8941f'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#d4af37'}
+            >
+              <FaHistory />
+              Order History
+            </button>
+          )}
           <div className="status-bar">
             <div className="status-item">
               <span className="status-dot preparing"></span>
@@ -525,9 +720,11 @@ const RestaurantDashboard = () => {
       </div>
 
       <div className="dashboard-content">
+
         {/* Main Content */}
         <div className="main-content">
-          {/* Filters */}
+          {/* Filters - Only show for today's view */}
+          {viewMode === 'today' && (
           <div className="filters-section">
             {/* Order Type Filter */}
             <div className="filter-group">
@@ -552,13 +749,6 @@ const RestaurantDashboard = () => {
                 >
                   <FaPhone />
                   Takeaway ({getOrderTypeCount('takeaway')})
-                </button>
-                <button 
-                  className={`filter-btn ${selectedOrderType === 'delivery' ? 'active' : ''}`}
-                  onClick={() => setSelectedOrderType('delivery')}
-                >
-                  <FaCar />
-                  Delivery ({getOrderTypeCount('delivery')})
                 </button>
               </div>
             </div>
@@ -597,20 +787,31 @@ const RestaurantDashboard = () => {
               </div>
             </div>
           </div>
+          )}
 
-                    {/* Orders Grid */}
+          {/* Orders Grid - Only show for today's view */}
+          {viewMode === 'today' && (
           <div className="orders-grid">
             {(() => {
               const groupedOrders = getGroupedOrders();
               
               if (selectedStatus !== 'all') {
                 // Render orders normally for specific status selection
-                return filteredOrders.map((order) => (
+                return filteredOrders.map((order) => {
+                  const isPinging = pingingOrders.has(order.id);
+                  return (
                   <div 
                     key={order.id} 
-                    className={`order-card ${selectedOrder?.id === order.id ? 'selected' : ''}`}
-                    onClick={() => setSelectedOrder(order)}
-                    style={{ cursor: 'pointer' }}
+                    className={`order-card ${selectedOrder?.id === order.id ? 'selected' : ''} ${isPinging ? 'pinging' : ''}`}
+                    onClick={() => {
+                      handleOrderClick(order.id);
+                      setSelectedOrder(order);
+                    }}
+                    style={{ 
+                      cursor: 'pointer',
+                      animation: isPinging ? 'pingPulse 1s ease-in-out infinite' : 'none',
+                      boxShadow: isPinging ? '0 0 0 3px rgba(255, 107, 53, 0.3)' : undefined
+                    }}
                   >
                 <div className="order-header">
                   <div className="order-type">
@@ -675,7 +876,8 @@ const RestaurantDashboard = () => {
 
 
               </div>
-            ));
+                  );
+                });
               } else {
                 // Render grouped orders for "All Status" view
                 return Object.entries(groupedOrders).map(([status, orders]) => {
@@ -684,12 +886,21 @@ const RestaurantDashboard = () => {
                   return (
                     <React.Fragment key={status}>
                       {renderStatusSectionHeader(status, orders.length)}
-                      {orders.map((order) => (
+                      {orders.map((order) => {
+                        const isPinging = pingingOrders.has(order.id);
+                        return (
                         <div 
                           key={order.id} 
-                          className={`order-card ${selectedOrder?.id === order.id ? 'selected' : ''}`}
-                          onClick={() => setSelectedOrder(order)}
-                          style={{ cursor: 'pointer' }}
+                          className={`order-card ${selectedOrder?.id === order.id ? 'selected' : ''} ${isPinging ? 'pinging' : ''}`}
+                          onClick={() => {
+                            handleOrderClick(order.id);
+                            setSelectedOrder(order);
+                          }}
+                          style={{ 
+                            cursor: 'pointer',
+                            animation: isPinging ? 'pingPulse 1s ease-in-out infinite' : 'none',
+                            boxShadow: isPinging ? '0 0 0 3px rgba(255, 107, 53, 0.3)' : undefined
+                          }}
                         >
                           <div className="order-header">
                             <div className="order-type">
@@ -754,13 +965,294 @@ const RestaurantDashboard = () => {
 
 
                         </div>
-                      ))}
+                        );
+                      })}
                     </React.Fragment>
                   );
                 });
               }
             })()}
           </div>
+          )}
+
+          {/* Order History Table View */}
+          {viewMode === 'history' && (
+            <div style={{ padding: '1rem' }}>
+              {/* Back to Dashboard Button */}
+              <button
+                onClick={() => setViewMode('today')}
+                style={{
+                  marginBottom: '1rem',
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#f3f4f6',
+                  color: '#374151',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.target.style.backgroundColor = '#e5e7eb';
+                  e.target.style.borderColor = '#9ca3af';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.backgroundColor = '#f3f4f6';
+                  e.target.style.borderColor = '#d1d5db';
+                }}
+              >
+                <FaArrowLeft />
+                Back to Dashboard
+              </button>
+              
+              {/* Search and Filters */}
+              <div style={{ 
+                marginBottom: '1.5rem', 
+                display: 'flex', 
+                gap: '1rem', 
+                flexWrap: 'wrap',
+                alignItems: 'center'
+              }}>
+                <div style={{ flex: '1', minWidth: '200px' }}>
+                  <div style={{ position: 'relative' }}>
+                    <FaSearch style={{ 
+                      position: 'absolute', 
+                      left: '0.75rem', 
+                      top: '50%', 
+                      transform: 'translateY(-50%)',
+                      color: '#6b7280'
+                    }} />
+                    <input
+                      type="text"
+                      placeholder="Search by order number, customer name, phone, or email..."
+                      value={historySearch}
+                      onChange={(e) => setHistorySearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem 0.75rem 0.75rem 2.5rem',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '8px',
+                        fontSize: '0.95rem'
+                      }}
+                    />
+                  </div>
+                </div>
+                <select
+                  value={historyStatusFilter}
+                  onChange={(e) => setHistoryStatusFilter(e.target.value)}
+                  style={{
+                    padding: '0.75rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '0.95rem',
+                    minWidth: '150px'
+                  }}
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="preparing">Preparing</option>
+                  <option value="ready">Ready</option>
+                  <option value="completed">Completed</option>
+                </select>
+                <select
+                  value={historyOrderTypeFilter}
+                  onChange={(e) => setHistoryOrderTypeFilter(e.target.value)}
+                  style={{
+                    padding: '0.75rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '0.95rem',
+                    minWidth: '150px'
+                  }}
+                >
+                  <option value="all">All Types</option>
+                  <option value="dine-in">Dine-In</option>
+                  <option value="takeaway">Takeaway</option>
+                  <option value="delivery">Delivery</option>
+                </select>
+              </div>
+
+              {/* Orders Table */}
+              <div style={{ 
+                backgroundColor: 'white', 
+                borderRadius: '8px', 
+                overflow: 'hidden',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+              }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e5e7eb' }}>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#374151' }}>Order #</th>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#374151' }}>Customer</th>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#374151' }}>Type</th>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#374151' }}>Status</th>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#374151' }}>Items</th>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#374151' }}>Total</th>
+                      <th style={{ padding: '1rem', textAlign: 'left', fontWeight: '600', color: '#374151' }}>Date/Time</th>
+                      <th style={{ padding: '1rem', textAlign: 'center', fontWeight: '600', color: '#374151' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredHistoryOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan="8" style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                          No orders found
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredHistoryOrders.map((order) => {
+                        const isExpanded = expandedOrders.has(order.id);
+                        return (
+                          <React.Fragment key={order.id}>
+                            <tr 
+                              style={{ 
+                                borderBottom: '1px solid #e5e7eb',
+                                cursor: 'pointer',
+                                backgroundColor: isExpanded ? '#f9fafb' : 'white'
+                              }}
+                              onClick={() => toggleOrderExpansion(order.id)}
+                            >
+                              <td style={{ padding: '1rem', fontWeight: '600', color: '#111827' }}>
+                                {order.orderNumber || `#${order.id.slice(-6).toUpperCase()}`}
+                              </td>
+                              <td style={{ padding: '1rem', color: '#111827', fontWeight: '500' }}>
+                                {(() => {
+                                  const firstName = order.customerInfo?.firstName || '';
+                                  const lastName = order.customerInfo?.lastName || '';
+                                  const fullName = `${firstName} ${lastName}`.trim();
+                                  const name = order.customerInfo?.name || '';
+                                  
+                                  if (fullName) {
+                                    return fullName;
+                                  } else if (name) {
+                                    return name;
+                                  } else {
+                                    return 'Customer';
+                                  }
+                                })()}
+                              </td>
+                              <td style={{ padding: '1rem' }}>
+                                <span style={{ 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: '0.5rem',
+                                  color: getOrderTypeColor(order.orderType)
+                                }}>
+                                  {getOrderTypeIcon(order.orderType)}
+                                  {getOrderTypeLabel(order.orderType)}
+                                </span>
+                              </td>
+                              <td style={{ padding: '1rem' }}>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.5rem',
+                                  color: getStatusColor(order.status)
+                                }}>
+                                  <span className="status-dot" style={{ backgroundColor: getStatusColor(order.status) }}></span>
+                                  {order.status === 'preparing' ? 'Preparing' : 
+                                   order.status === 'ready' ? 'Ready' : 
+                                   order.status === 'completed' ? 'Completed' : 'Pending'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '1rem', color: '#6b7280' }}>
+                                {order.items?.length || 0} items
+                              </td>
+                              <td style={{ padding: '1rem', fontWeight: '600', color: '#111827' }}>
+                                ${order.amount?.toFixed(2) || '0.00'}
+                              </td>
+                              <td style={{ padding: '1rem', color: '#6b7280', fontSize: '0.875rem' }}>
+                                {formatTimestamp(order.timestamp)}
+                                <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.25rem' }}>
+                                  {new Date(order.timestamp).toLocaleDateString()}
+                                </div>
+                              </td>
+                              <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr>
+                                <td colSpan="8" style={{ padding: '1.5rem', backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                    <div>
+                                      <h4 style={{ marginBottom: '0.75rem', color: '#111827', fontSize: '1rem', fontWeight: '600' }}>Customer Information</h4>
+                                      <div style={{ fontSize: '0.875rem', color: '#374151', lineHeight: '1.75' }}>
+                                        <div><strong>Name:</strong> {order.customerInfo?.firstName} {order.customerInfo?.lastName}</div>
+                                        <div><strong>Email:</strong> {order.customerInfo?.email || 'N/A'}</div>
+                                        <div><strong>Phone:</strong> {order.customerInfo?.phone || 'N/A'}</div>
+                                        {order.customerInfo?.address && (
+                                          <div><strong>Address:</strong> {order.customerInfo.address}</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <h4 style={{ marginBottom: '0.75rem', color: '#111827', fontSize: '1rem', fontWeight: '600' }}>Order Items</h4>
+                                      <div style={{ fontSize: '0.875rem', color: '#374151' }}>
+                                        {order.items?.map((item, index) => (
+                                          <div key={index} style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>{item.quantity}x {item.name}</span>
+                                            <span style={{ fontWeight: '600' }}>${(item.price * item.quantity).toFixed(2)}</span>
+                                          </div>
+                                        ))}
+                                        <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                            <span>Subtotal:</span>
+                                            <span>${order.subtotal?.toFixed(2) || '0.00'}</span>
+                                          </div>
+                                          {order.serviceFee > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                              <span>Service Fee:</span>
+                                              <span>${order.serviceFee?.toFixed(2) || '0.00'}</span>
+                                            </div>
+                                          )}
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '600', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #e5e7eb' }}>
+                                            <span>Total:</span>
+                                            <span>${order.amount?.toFixed(2) || '0.00'}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePrintOrder(order);
+                                      }}
+                                      style={{
+                                        padding: '0.5rem 1rem',
+                                        backgroundColor: '#6b7280',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        fontSize: '0.875rem'
+                                      }}
+                                    >
+                                      <FaPrint />
+                                      Print Order
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Order Details Sidebar */}

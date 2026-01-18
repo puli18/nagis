@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ref, get } from 'firebase/database';
+import { realtimeDb } from '../firebase/config';
 import { FaCheckCircle, FaClock, FaPhone, FaMapMarkerAlt, FaUtensils, FaBox, FaCar, FaHome } from 'react-icons/fa';
 
 const OrderConfirmationPage = () => {
@@ -9,15 +11,64 @@ const OrderConfirmationPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Suppress Firebase connection errors (they don't affect this page)
+    const originalError = window.console.error;
+    window.console.error = (...args) => {
+      const errorMessage = args[0]?.toString() || '';
+      // Suppress IndexedDB connection errors that don't affect functionality
+      if (errorMessage.includes('Indexed Database server lost') || 
+          errorMessage.includes('Connection to Indexed Database')) {
+        return; // Suppress these errors
+      }
+      originalError.apply(console, args);
+    };
+
     // Get order data from location state (passed from checkout page)
-    if (location.state?.order) {
-      setOrder(location.state.order);
-    } else {
-      // If no order data, redirect to home
-      navigate('/');
-      return;
-    }
-    setLoading(false);
+    const fetchOrderData = async () => {
+      if (location.state?.order) {
+        const orderFromState = location.state.order;
+        
+        // Try to fetch the latest order data from Firebase to ensure we have the correct orderNumber
+        if (orderFromState.id) {
+          try {
+            const orderRef = ref(realtimeDb, `orders/${orderFromState.id}`);
+            const snapshot = await get(orderRef);
+            
+            if (snapshot.exists()) {
+              const orderFromFirebase = snapshot.val();
+              // Use Firebase data (which has the correct orderNumber) but merge with state data for items
+              setOrder({
+                ...orderFromFirebase,
+                id: orderFromState.id,
+                // Ensure items are preserved from state if Firebase doesn't have them yet
+                items: orderFromFirebase.items || orderFromState.items,
+              });
+            } else {
+              // Fallback to state data if Firebase doesn't have it yet
+              setOrder(orderFromState);
+            }
+          } catch (error) {
+            console.error('Error fetching order from Firebase:', error);
+            // Fallback to state data if fetch fails
+            setOrder(orderFromState);
+          }
+        } else {
+          setOrder(orderFromState);
+        }
+        setLoading(false);
+      } else {
+        // If no order data, redirect to home
+        navigate('/');
+        return;
+      }
+    };
+    
+    fetchOrderData();
+
+    // Restore original console.error on cleanup
+    return () => {
+      window.console.error = originalError;
+    };
   }, [location.state, navigate]);
 
   const getOrderTypeIcon = (orderType) => {

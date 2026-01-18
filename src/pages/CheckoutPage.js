@@ -6,9 +6,8 @@ import { placeholderImage } from '../utils/placeholderImage';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { createPaymentIntent, confirmPayment } from '../services/firebaseFunctions';
-
-// Initialize Stripe
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+import { ref, get } from 'firebase/database';
+import { realtimeDb } from '../firebase/config';
 
 // Payment Method Selection Component
 const PaymentMethodSelector = ({ selectedMethod, onMethodChange }) => {
@@ -210,7 +209,45 @@ const CheckoutPage = () => {
   const [orderType] = useState('pickup'); // Only pickup available
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [stripePromise, setStripePromise] = useState(null);
 
+  // Load restaurant Stripe account ID and initialize Stripe with it
+  useEffect(() => {
+    const loadStripeAccount = async () => {
+      try {
+        const accountRef = ref(realtimeDb, 'stripe/connectedAccount');
+        const snapshot = await get(accountRef);
+        
+        if (snapshot.exists()) {
+          const accountData = snapshot.val();
+          const accountId = accountData.accountId;
+          
+          if (accountId) {
+            // Initialize Stripe with connected account for direct charges
+            const stripe = await loadStripe(
+              process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY,
+              {
+                stripeAccount: accountId, // This makes it work with direct charges
+              }
+            );
+            setStripePromise(stripe);
+            console.log('✅ Stripe initialized with connected account:', accountId);
+          }
+        } else {
+          // Fallback: initialize without connected account (will fail for direct charges)
+          const stripe = await loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+          setStripePromise(stripe);
+          console.warn('⚠️ No Stripe account found, initializing without connected account');
+        }
+      } catch (error) {
+        console.error('Error loading Stripe account:', error);
+        // Fallback: initialize without connected account
+        loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY).then(setStripePromise);
+      }
+    };
+
+    loadStripeAccount();
+  }, []);
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -257,11 +294,12 @@ const CheckoutPage = () => {
       const result = await confirmPayment(paymentIntent.id, orderData);
 
       console.log('Order confirmed successfully with ID:', result.orderId);
+      console.log('Order number:', result.orderNumber);
       
-      // Prepare order data for confirmation page
+      // Prepare order data for confirmation page - use actual order number from backend
       const confirmationOrder = {
         id: result.orderId,
-        orderNumber: `NC-${Date.now()}`, // Generate a simple order number
+        orderNumber: result.orderNumber || `#${result.orderId.slice(-6).toUpperCase()}`, // Use order number from backend
         timestamp: Date.now(),
         amount: orderData.amount,
         serviceFee: orderData.serviceFee,
@@ -291,6 +329,15 @@ const CheckoutPage = () => {
 
   if (items.length === 0) {
     return null; // Will redirect to menu
+  }
+
+  // Wait for Stripe to be initialized
+  if (!stripePromise) {
+    return (
+      <div className="checkout-page" style={{ paddingTop: '8rem', textAlign: 'center' }}>
+        <p>Loading payment system...</p>
+      </div>
+    );
   }
 
   return (

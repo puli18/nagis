@@ -214,9 +214,16 @@ const ContactPage = () => {
                 <FaClock style={{ color: 'var(--accent-gold)', marginRight: '1rem', fontSize: '1.5rem' }} />
                 <h3>Opening Hours</h3>
               </div>
-              <p>Monday - Thursday: 10:30 AM - 8:00 PM</p>
-              <p>Friday: 10:30 AM - 8:00 PM</p>
-              <p>Saturday - Sunday: 10:00 AM - 8:00 PM</p>
+              <p>
+                <strong>Wednesday - Monday</strong>
+                <br />
+                10:30 AM - 8:00 PM
+              </p>
+              <p>
+                <strong>Tuesday</strong>
+                <br />
+                Closed
+              </p>
               <p style={{ color: 'var(--accent-gold)', fontWeight: '600' }}>
                 Lunch service available Friday - Sunday: 12:00 PM - 3:00 PM
               </p>

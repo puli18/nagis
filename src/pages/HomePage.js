@@ -256,14 +256,52 @@ const HomePage = () => {
               <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--accent-gold)', marginBottom: '0.5rem', fontFamily: "'Inter', sans-serif" }}>$150</div>
               <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Shared Platter</div>
             </div>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Fried rice</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Chicken Maryland</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Sausages/Fried Eggs</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Crabs/Cuttlefish</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Prawns/Mussels</li>
-              <li style={{ padding: '0.5rem 0', color: 'var(--text-secondary)' }}>Tomato/Cucumber</li>
-            </ul>
+            <img
+              src="/images/House%20Specials/Mixed%20Grill.png"
+              alt="Chef's Special Mix Grill"
+              style={{
+                width: '100%',
+                height: '180px',
+                objectFit: 'cover',
+                borderRadius: '12px',
+                marginBottom: '1rem',
+                border: '1px solid rgba(212, 175, 55, 0.2)'
+              }}
+              onError={(e) => {
+                e.target.src = placeholderImage;
+              }}
+            />
+            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+              A generous shared platter featuring our signature grilled meats and seafood, finished with vibrant
+              Sri Lankan spices and fresh sides for a full table experience.
+            </p>
+          </div>
+
+          {/* Roast Paan with Crab Curry */}
+          <div className="card p-4" style={{ display: 'flex', flexDirection: 'column', minHeight: '350px' }}>
+            <div className="mb-4">
+              <h3 style={{ color: 'var(--text-primary)', marginBottom: '1rem', fontFamily: "'Playfair Display', serif", fontSize: '24px' }}>Roast Paan with Crab Curry</h3>
+              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--accent-gold)', marginBottom: '0.5rem', fontFamily: "'Inter', sans-serif" }}>$20</div>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Per Person</div>
+            </div>
+            <img
+              src="/images/House%20Specials/Roast%20Paan%20with%20Crab%20Curry_.png"
+              alt="Roast Paan with Crab Curry"
+              style={{
+                width: '100%',
+                height: '180px',
+                objectFit: 'cover',
+                borderRadius: '12px',
+                marginBottom: '1rem',
+                border: '1px solid rgba(212, 175, 55, 0.2)'
+              }}
+              onError={(e) => {
+                e.target.src = placeholderImage;
+              }}
+            />
+            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+              Warm roast paan paired with rich crab curry, finished with aromatic spices and fresh herbs.
+            </p>
           </div>
 
           {/* Friday Hopper Night Buffet */}
@@ -273,15 +311,52 @@ const HomePage = () => {
               <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--accent-gold)', marginBottom: '0.5rem', fontFamily: "'Inter', sans-serif" }}>$35</div>
               <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Per Person</div>
             </div>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Egg & Plain hoppers</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Kottu & Fried Rice</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Chicken & Fish Curry</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Dhal or Potato Curry</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Lunumiris/PolSambol</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Caramelized Onions</li>
-              <li style={{ padding: '0.5rem 0', color: 'var(--text-secondary)' }}>Dessert</li>
-            </ul>
+            <img
+              src="/images/food/stringhopperspilau-506x405.png"
+              alt="Friday Hopper Night Buffet"
+              style={{
+                width: '100%',
+                height: '180px',
+                objectFit: 'cover',
+                borderRadius: '12px',
+                marginBottom: '1rem',
+                border: '1px solid rgba(212, 175, 55, 0.2)'
+              }}
+              onError={(e) => {
+                e.target.src = placeholderImage;
+              }}
+            />
+            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+              A vibrant Friday night spread with hoppers, curries, and classic accompaniments, bringing the flavors
+              of Colombo street food to your table.
+            </p>
+          </div>
+
+          {/* Monday Dosa Night */}
+          <div className="card p-4" style={{ display: 'flex', flexDirection: 'column', minHeight: '350px' }}>
+            <div className="mb-4">
+              <h3 style={{ color: 'var(--text-primary)', marginBottom: '1rem', fontFamily: "'Playfair Display', serif", fontSize: '24px' }}>Monday Dosa Night</h3>
+              <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--accent-gold)', marginBottom: '0.5rem', fontFamily: "'Inter', sans-serif" }}>$20</div>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Per Person</div>
+            </div>
+            <img
+              src="/images/House%20Specials/Dosa.png"
+              alt="Monday Dosa Night"
+              style={{
+                width: '100%',
+                height: '180px',
+                objectFit: 'cover',
+                borderRadius: '12px',
+                marginBottom: '1rem',
+                border: '1px solid rgba(212, 175, 55, 0.2)'
+              }}
+              onError={(e) => {
+                e.target.src = placeholderImage;
+              }}
+            />
+            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+              Crispy dosas served with flavorful curries and chutneys for a classic Monday night treat.
+            </p>
           </div>
 
           {/* Weekend Lunch Buffet */}
@@ -291,14 +366,25 @@ const HomePage = () => {
               <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--accent-gold)', marginBottom: '0.5rem', fontFamily: "'Inter', sans-serif" }}>$28</div>
               <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Per Person</div>
             </div>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Rice - Yellow/White/Red</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Chicken/ Fish Curry</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Dhal/Potato Curry</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Veggies</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Papadam</li>
-              <li style={{ padding: '0.5rem 0', color: 'var(--text-secondary)' }}>Dessert</li>
-            </ul>
+            <img
+              src="/images/food/riceandcurryfish-506x405.png"
+              alt="Weekend Lunch Buffet"
+              style={{
+                width: '100%',
+                height: '180px',
+                objectFit: 'cover',
+                borderRadius: '12px',
+                marginBottom: '1rem',
+                border: '1px solid rgba(212, 175, 55, 0.2)'
+              }}
+              onError={(e) => {
+                e.target.src = placeholderImage;
+              }}
+            />
+            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+              A relaxed weekend buffet with fragrant rice, hearty curries, seasonal vegetables, and sweet finishes
+              made for long, leisurely lunches.
+            </p>
           </div>
 
           {/* Weekday Lunch Buffet */}
@@ -308,14 +394,27 @@ const HomePage = () => {
               <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--accent-gold)', marginBottom: '0.5rem', fontFamily: "'Inter', sans-serif" }}>$23</div>
               <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Per Person</div>
             </div>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Rice - White/Red</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Chicken/Fish Curry</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Dhal Curry</li>
-              <li style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(212, 175, 55, 0.2)', color: 'var(--text-secondary)' }}>Veggies</li>
-              <li style={{ padding: '0.5rem 0', color: 'var(--text-secondary)' }}>Papadam</li>
-            </ul>
+            <img
+              src="/images/food/chickenbiryani-506x405.png"
+              alt="Weekday Lunch Buffet"
+              style={{
+                width: '100%',
+                height: '180px',
+                objectFit: 'cover',
+                borderRadius: '12px',
+                marginBottom: '1rem',
+                border: '1px solid rgba(212, 175, 55, 0.2)'
+              }}
+              onError={(e) => {
+                e.target.src = placeholderImage;
+              }}
+            />
+            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+              A quick, satisfying weekday spread with comforting curries, fluffy rice, and fresh sides—perfect for
+              a midday recharge.
+            </p>
           </div>
+
         </div>
       </section>
 

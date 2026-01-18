@@ -132,7 +132,11 @@ const AdminPage = () => {
     const totalOrders = orders.length;
     const pendingOrders = orders.filter(order => order.status === 'pending').length;
     const completedOrders = orders.filter(order => order.status === 'completed').length;
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0);
+    // Calculate revenue excluding service fees (use subtotal, or amount - serviceFee)
+    const totalRevenue = orders.reduce((sum, order) => {
+      const revenue = order.subtotal || (order.amount ? (order.amount - (order.serviceFee || 0)) : 0);
+      return sum + revenue;
+    }, 0);
 
     setStats({
       totalOrders,
@@ -435,14 +439,16 @@ const AdminPage = () => {
         {orders.map((order) => (
           <div key={order.id} className="order-card detailed">
             <div className="order-header">
-              <div className="order-number">#{order.id.slice(-6)}</div>
+              <div className="order-number">{order.orderNumber || `#${order.id.slice(-6).toUpperCase()}`}</div>
               <div className="order-status" style={{ backgroundColor: getStatusColor(order.status) }}>
                 {order.status}
               </div>
           </div>
             
             <div className="customer-info">
-              <h4>{order.customerInfo?.name || 'Customer'}</h4>
+              <h4>{order.customerInfo?.firstName && order.customerInfo?.lastName 
+                ? `${order.customerInfo.firstName} ${order.customerInfo.lastName}` 
+                : order.customerInfo?.name || 'Customer'}</h4>
               <p><FaPhone /> {order.customerInfo?.phone || 'No phone'}</p>
               <p><FaEnvelope /> {order.customerInfo?.email || 'No email'}</p>
               {order.customerInfo?.address && (
@@ -471,7 +477,7 @@ const AdminPage = () => {
               </div>
               <div className="total-row total">
                 <span>Total:</span>
-                <span>{formatCurrency(order.total || 0)}</span>
+                <span>{formatCurrency(order.amount || order.total || 0)}</span>
           </div>
         </div>
 
@@ -695,7 +701,9 @@ const AdminPage = () => {
                   <FaClipboardList />
                 </div>
                 <div className="activity-content">
-                  <p>New order from {order.customerInfo?.name || 'Customer'}</p>
+                  <p>New order from {order.customerInfo?.firstName && order.customerInfo?.lastName 
+                    ? `${order.customerInfo.firstName} ${order.customerInfo.lastName}` 
+                    : order.customerInfo?.name || 'Customer'}</p>
                   <small>{formatDate(order.timestamp)}</small>
                 </div>
                 </div>

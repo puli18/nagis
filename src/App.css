@@ -2023,6 +2023,15 @@ select.variation-dropdown option {
 /* ===== END NEW STICKY CATEGORY BAR ===== */
 
 /* Restaurant Dashboard Styles */
+/* Restaurant Dashboard - Ensure left border matches other borders */
+.restaurant-dashboard .order-card {
+  border-left: 1px solid #e5e7eb;
+}
+
+.restaurant-dashboard .order-card:hover {
+  border-left-color: #ff6b35;
+}
+
 .restaurant-dashboard {
   min-height: 100vh;
   background-color: #f8fafc;
@@ -2191,6 +2200,7 @@ select.variation-dropdown option {
 .order-card {
   background: white;
   border: 1px solid #e5e7eb;
+  border-left: 1px solid #e5e7eb;
   border-radius: 0.75rem;
   padding: 1.5rem;
   transition: all 0.2s;
@@ -2199,6 +2209,7 @@ select.variation-dropdown option {
 
 .order-card:hover {
   border-color: #ff6b35;
+  border-left-color: #ff6b35;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
 }
@@ -2755,13 +2766,29 @@ select.variation-dropdown option {
   }
 }
 
+/* Ping animation for new orders */
+@keyframes pingPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.4);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 8px rgba(255, 107, 53, 0);
+  }
+}
+
+.order-card.pinging {
+  border-color: #ff6b35 !important;
+  border-width: 2px;
+}
+
 /* Status Section Headers */
 .status-section-header {
   grid-column: 1 / -1;
   padding: 1rem;
   margin: 1rem 0 0.5rem 0;
   background-color: #f8fafc;
-  border-left: 4px solid;
   border-radius: 8px;
   font-weight: 600;
   font-size: 1.1rem;
@@ -2772,21 +2799,6 @@ select.variation-dropdown option {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.status-section-header.new-orders {
-  border-left-color: #6b7280;
-}
-
-.status-section-header.preparing {
-  border-left-color: #f59e0b;
-}
-
-.status-section-header.ready {
-  border-left-color: #10b981;
-}
-
-.status-section-header.completed {
-  border-left-color: #6b7280;
-}
 
 /* Order Confirmation Page */
 .confirmation-page {

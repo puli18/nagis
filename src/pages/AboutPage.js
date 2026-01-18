@@ -1,4 +1,5 @@
 import React from 'react';
+import { FaUser, FaUserTie, FaUsers } from 'react-icons/fa';
 import { placeholderImage } from '../utils/placeholderImage';
 
 const AboutPage = () => {
@@ -149,21 +150,25 @@ const AboutPage = () => {
 
         <div className="d-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
           <div className="card p-3 text-center">
-            <img
-              src="/images/nagina.jpg"
-              alt="Nagina Perera"
+            <div
+              aria-hidden="true"
               style={{
                 width: '150px',
                 height: '150px',
                 borderRadius: '50%',
-                objectFit: 'cover',
-                margin: '0 auto 1rem'
+                backgroundColor: 'rgba(212, 175, 55, 0.15)',
+                border: '2px solid var(--accent-gold)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1rem',
+                fontSize: '3rem',
+                color: 'var(--accent-gold)'
               }}
-              onError={(e) => {
-                e.target.src = '/images/placeholder.jpg';
-              }}
-            />
-            <h3>Nagina Perera</h3>
+            >
+              <FaUser />
+            </div>
+            <h3>Nagina</h3>
             <p style={{ color: 'var(--accent-gold)', fontWeight: '600' }}>Founder & Head Chef</p>
             <p>
               The heart and soul of Nagi's Ceylon, Nagina brings over 30 years of culinary expertise 
@@ -173,21 +178,25 @@ const AboutPage = () => {
           </div>
 
           <div className="card p-3 text-center">
-            <img
-              src="/images/mahesh.jpg"
-              alt="Mahesh Perera"
+            <div
+              aria-hidden="true"
               style={{
                 width: '150px',
                 height: '150px',
                 borderRadius: '50%',
-                objectFit: 'cover',
-                margin: '0 auto 1rem'
+                backgroundColor: 'rgba(212, 175, 55, 0.15)',
+                border: '2px solid var(--accent-gold)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1rem',
+                fontSize: '3rem',
+                color: 'var(--accent-gold)'
               }}
-              onError={(e) => {
-                e.target.src = '/images/placeholder.jpg';
-              }}
-            />
-            <h3>Mahesh Perera</h3>
+            >
+              <FaUserTie />
+            </div>
+            <h3>Mahesh</h3>
             <p style={{ color: 'var(--accent-gold)', fontWeight: '600' }}>Co-Founder & Operations Manager</p>
             <p>
               Mahesh oversees the day-to-day operations and ensures that every aspect of our service 
@@ -197,20 +206,24 @@ const AboutPage = () => {
           </div>
 
           <div className="card p-3 text-center">
-            <img
-              src="/images/kitchen-team.jpg"
-              alt="Our Kitchen Team"
+            <div
+              aria-hidden="true"
               style={{
                 width: '150px',
                 height: '150px',
                 borderRadius: '50%',
-                objectFit: 'cover',
-                margin: '0 auto 1rem'
+                backgroundColor: 'rgba(212, 175, 55, 0.15)',
+                border: '2px solid var(--accent-gold)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1rem',
+                fontSize: '3rem',
+                color: 'var(--accent-gold)'
               }}
-              onError={(e) => {
-                e.target.src = '/images/placeholder.jpg';
-              }}
-            />
+            >
+              <FaUsers />
+            </div>
             <h3>Our Kitchen Team</h3>
             <p style={{ color: 'var(--accent-gold)', fontWeight: '600' }}>Dedicated Chefs</p>
             <p>

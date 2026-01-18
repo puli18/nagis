@@ -20,98 +20,41 @@ The payment system will:
 
 ## Backend Requirements
 
-### 1. Server Setup (Node.js/Express)
+### 1. Firebase Functions Setup
 
-```javascript
-// server.js
-const express = require('express');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const app = express();
+The backend uses Firebase Functions (Cloud Functions) for payment processing. The functions are located in `firebase/functions/index.js`.
 
-app.use(express.json());
+**Key Functions:**
+- `createPaymentIntent` - Creates Stripe payment intents with split payments
+- `confirmPayment` - Confirms payment and creates orders in Firebase
+- `stripeWebhook` - Handles Stripe webhook events
 
-// Create payment intent with application fee
-app.post('/create-payment-intent', async (req, res) => {
-  try {
-    const { amount, items, customerInfo } = req.body;
-    
-    // Calculate amounts
-    const subtotal = amount.subtotal;
-    const serviceFee = Math.min(amount.subtotal * 0.05, 3); // 5% capped at $3
-    const total = subtotal + serviceFee;
-    
-    // Create payment intent with application fee
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(total * 100), // Convert to cents
-      currency: 'aud',
-      application_fee_amount: Math.round(serviceFee * 100), // Service fee for platform
-      transfer_data: {
-        destination: process.env.RESTAURANT_STRIPE_ACCOUNT_ID, // Restaurant's connected account
-      },
-      metadata: {
-        subtotal: subtotal.toFixed(2),
-        serviceFee: serviceFee.toFixed(2),
-        orderItems: JSON.stringify(items),
-        customerEmail: customerInfo.email,
-        customerPhone: customerInfo.phone,
-        deliveryAddress: customerInfo.address
-      }
-    });
+**Implementation:**
+The payment functions are already implemented in `firebase/functions/index.js`. They handle:
+- Payment intent creation with application fees
+- Direct charges to connected accounts
+- Order creation in Firebase Realtime Database
+- Webhook event processing
 
-    res.json({
-      clientSecret: paymentIntent.client_secret,
-      paymentIntentId: paymentIntent.id
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Confirm payment and create order
-app.post('/confirm-payment', async (req, res) => {
-  try {
-    const { paymentIntentId, orderData } = req.body;
-    
-    // Verify payment intent
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    
-    if (paymentIntent.status === 'succeeded') {
-      // Create order in database
-      const order = await createOrder({
-        paymentIntentId,
-        amount: paymentIntent.amount / 100,
-        items: orderData.items,
-        customerInfo: orderData.customerInfo,
-        status: 'confirmed'
-      });
-      
-      // Send confirmation emails
-      await sendCustomerConfirmation(order);
-      await sendRestaurantNotification(order);
-      
-      res.json({ success: true, orderId: order.id });
-    } else {
-      res.status(400).json({ error: 'Payment not completed' });
-    }
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.listen(3001, () => {
-  console.log('Server running on port 3001');
-});
-```
+For setup instructions, see [FIREBASE_FUNCTIONS_SETUP.md](./FIREBASE_FUNCTIONS_SETUP.md)
 
 ### 2. Environment Variables
 
+**Frontend (.env in project root):**
 ```env
-# .env
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_PUBLISHABLE_KEY=pk_test_...
-RESTAURANT_STRIPE_ACCOUNT_ID=acct_...
-WEBHOOK_SECRET=whsec_...
+REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
+
+**Firebase Functions (set via Firebase CLI):**
+```bash
+# Set Stripe secret key
+firebase functions:secrets:set STRIPE_SECRET_KEY
+
+# Set webhook secret
+firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
+```
+
+Or configure via Firebase Console → Functions → Configuration → Environment variables
 
 ## Frontend Integration
 
@@ -126,8 +69,11 @@ npm install @stripe/stripe-js @stripe/react-stripe-js
 ```javascript
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import app from '../firebase/config';
 
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+const functions = getFunctions(app);
 
 // Payment Form Component
 const PaymentForm = ({ amount, onSuccess, onError }) => {
@@ -145,14 +91,15 @@ const PaymentForm = ({ amount, onSuccess, onError }) => {
     setIsProcessing(true);
 
     try {
-      // Create payment intent
-      const response = await fetch('/api/create-payment-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, items, customerInfo })
+      // Create payment intent using Firebase Functions
+      const createPaymentIntentFunction = httpsCallable(functions, 'createPaymentIntent');
+      const result = await createPaymentIntentFunction({
+        amount,
+        items,
+        customerInfo
       });
 
-      const { clientSecret } = await response.json();
+      const { clientSecret } = result.data;
 
       // Confirm payment
       const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
