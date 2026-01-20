@@ -35,8 +35,11 @@ const HomePage = () => {
         // Initialize selectedVariations with default variations for items that have variations
         const initialVariations = {};
         popularItems.forEach(item => {
-          if (item.variations && item.variations.length > 0) {
-            initialVariations[item.id] = item.variations[0]; // Set first variation as default
+          const availableVariations = (item.variations || []).filter(
+            (variation) => variation.available !== false
+          );
+          if (availableVariations.length > 0) {
+            initialVariations[item.id] = availableVariations[0]; // Set first available variation as default
           }
         });
         setSelectedVariations(initialVariations);
@@ -84,11 +87,23 @@ const HomePage = () => {
   };
 
   const handleAddToCart = (item) => {
-    const variation = selectedVariations[item.id];
+    if (item.available === false) {
+      return;
+    }
+
+    const availableVariations = (item.variations || []).filter(
+      (variation) => variation.available !== false
+    );
+    const variation = availableVariations.find(
+      (availableVariation) => availableVariation.id === selectedVariations[item.id]?.id
+    ) || availableVariations[0];
     const itemToAdd = variation 
       ? { ...item, name: `${item.name} - ${variation.name}`, price: variation.price }
       : item;
-    addItem(itemToAdd);
+
+    if (availableVariations.length > 0 || !item.variations?.length) {
+      addItem(itemToAdd);
+    }
   };
 
 
@@ -193,8 +208,15 @@ const HomePage = () => {
         ) : (
           <>
             <div className="menu-grid">
-              {featuredItems.map((item) => (
-                <div key={item.id} className="menu-item card">
+              {featuredItems.map((item) => {
+                const availableVariations = (item.variations || []).filter(
+                  (variation) => variation.available !== false
+                );
+                const hasVariations = (item.variations || []).length > 0;
+                const hasAvailableVariations = availableVariations.length > 0;
+                const isItemAvailable = item.available !== false && (!hasVariations || hasAvailableVariations);
+                return (
+                <div key={item.id} className={`menu-item card ${!isItemAvailable ? 'menu-item-unavailable' : ''}`}>
                   {item.image && (
                     <img
                       src={item.image}
@@ -206,9 +228,12 @@ const HomePage = () => {
                     />
                   )}
                   <div className="menu-item-content">
-                    <h3 className="menu-item-title">{item.name}</h3>
+                    <div className="menu-item-header">
+                      <h3 className="menu-item-title">{item.name}</h3>
+                      {!isItemAvailable && <span className="menu-item-soldout">Sold Out</span>}
+                    </div>
                     <div className="menu-item-price">
-                      ${selectedVariations[item.id] 
+                      ${selectedVariations[item.id] && hasAvailableVariations
                         ? selectedVariations[item.id].price.toFixed(2)
                         : item.price.toFixed(2)
                       }
@@ -222,12 +247,14 @@ const HomePage = () => {
                     <button
                       className="btn btn-primary w-full"
                       onClick={() => handleAddToCart(item)}
+                      disabled={!isItemAvailable}
                     >
-                      Add to Cart
+                      {isItemAvailable ? 'Add to Cart' : 'Unavailable'}
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="text-center mt-4">

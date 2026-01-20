@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { FaTrash, FaPlus, FaMinus, FaPhone } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import { placeholderImage } from '../utils/placeholderImage';
+import { useBusinessHours } from '../context/BusinessHoursContext';
+import { formatNextOpening } from '../utils/businessHours';
 
 const CartPage = () => {
   const navigate = useNavigate();
@@ -16,6 +18,9 @@ const CartPage = () => {
     clearCart,
     createCartItemId
   } = useCart();
+  const { isOpenNow, nextOpeningDate, isLoading } = useBusinessHours();
+  const checkoutDisabled = !isLoading && !isOpenNow;
+  const nextOpeningLabel = formatNextOpening(nextOpeningDate);
 
   const handleQuantityChange = (item, newQuantity) => {
     const cartItemId = createCartItemId(item);
@@ -28,6 +33,9 @@ const CartPage = () => {
   };
 
   const handleCheckout = () => {
+    if (checkoutDisabled) {
+      return;
+    }
     navigate('/checkout');
   };
 
@@ -153,10 +161,16 @@ const CartPage = () => {
               <button
                 className="btn btn-primary w-full mt-3"
                 onClick={handleCheckout}
-                disabled={items.length === 0}
+                disabled={items.length === 0 || checkoutDisabled}
               >
-                Proceed to Checkout
+                {checkoutDisabled ? 'Closed - Checkout Disabled' : 'Proceed to Checkout'}
               </button>
+
+              {checkoutDisabled && (
+                <div className="closed-order-note">
+                  We are closed now. {nextOpeningLabel && `Next opening: ${nextOpeningLabel}.`}
+                </div>
+              )}
 
               <div className="text-center mt-3">
                 <p style={{ fontSize: '0.9rem', color: '#666' }}>

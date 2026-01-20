@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { ref, onValue, off, update } from 'firebase/database';
+import React, { useState, useEffect, useRef } from 'react';
+import { ref, onValue, update } from 'firebase/database';
+import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { FaPhone, FaTimes, FaPrint, FaUtensils, FaCar, FaHome, FaCheck, FaSignInAlt, FaSignOutAlt, FaBox, FaHistory, FaSearch, FaChevronDown, FaChevronUp, FaArrowLeft } from 'react-icons/fa';
-import { realtimeDb, auth } from '../firebase/config';
+import { FaPhone, FaTimes, FaPrint, FaUtensils, FaCar, FaHome, FaCheck, FaSignInAlt, FaSignOutAlt, FaBox, FaHistory, FaSearch, FaChevronDown, FaChevronUp, FaChevronLeft, FaChevronRight, FaListAlt } from 'react-icons/fa';
+import { realtimeDb, auth, db } from '../firebase/config';
 
 const RestaurantDashboard = () => {
   const [orders, setOrders] = useState([]);
@@ -18,15 +19,24 @@ const RestaurantDashboard = () => {
     password: ''
   });
   const [currentTime, setCurrentTime] = useState('');
-  const [previousOrderIds, setPreviousOrderIds] = useState(new Set());
+  const previousOrderIdsRef = useRef(new Set());
   const [showNewOrderNotification, setShowNewOrderNotification] = useState(false);
   const [viewMode, setViewMode] = useState('today'); // 'today' or 'history'
   const [historySearch, setHistorySearch] = useState('');
   const [historyStatusFilter, setHistoryStatusFilter] = useState('all');
   const [historyOrderTypeFilter, setHistoryOrderTypeFilter] = useState('all');
+  const [historySelectedDate, setHistorySelectedDate] = useState('');
+  const [historyDateInputType, setHistoryDateInputType] = useState('text');
   const [expandedOrders, setExpandedOrders] = useState(new Set());
   const [pingingOrders, setPingingOrders] = useState(new Set()); // Orders that are currently pinging
   const [audioRef, setAudioRef] = useState(null); // Reference to audio element
+  const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(true);
+  const [menuItems, setMenuItems] = useState([]);
+  const [menuLoading, setMenuLoading] = useState(true);
+  const [menuError, setMenuError] = useState('');
+  const [menuSearch, setMenuSearch] = useState('');
+  const [menuCategoryFilter, setMenuCategoryFilter] = useState('all');
+  const [menuSavingKeys, setMenuSavingKeys] = useState(new Set());
 
 
   // Authentication state listener
@@ -39,10 +49,22 @@ const RestaurantDashboard = () => {
     return () => unsubscribe();
   }, []);
 
-  // Request notification permission on mount
+  // Request notification permission on first user gesture
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission();
+      const handleUserGesture = () => {
+        Notification.requestPermission().catch(() => {});
+        window.removeEventListener('click', handleUserGesture);
+        window.removeEventListener('keydown', handleUserGesture);
+      };
+
+      window.addEventListener('click', handleUserGesture, { once: true });
+      window.addEventListener('keydown', handleUserGesture, { once: true });
+
+      return () => {
+        window.removeEventListener('click', handleUserGesture);
+        window.removeEventListener('keydown', handleUserGesture);
+      };
     }
   }, []);
 
@@ -91,9 +113,9 @@ const RestaurantDashboard = () => {
         const newOrderIds = new Set();
         
         // Find truly new orders (only if previousOrderIds is not empty, meaning we've loaded orders before)
-        if (previousOrderIds.size > 0) {
+        if (previousOrderIdsRef.current.size > 0) {
           currentOrderIds.forEach(id => {
-            if (!previousOrderIds.has(id)) {
+            if (!previousOrderIdsRef.current.has(id)) {
               newOrderIds.add(id);
             }
           });
@@ -111,11 +133,11 @@ const RestaurantDashboard = () => {
         }
         
         // Update previous order IDs
-        setPreviousOrderIds(currentOrderIds);
+        previousOrderIdsRef.current = currentOrderIds;
         setOrders(ordersArray);
       } else {
         setOrders([]);
-        setPreviousOrderIds(new Set());
+        previousOrderIdsRef.current = new Set();
       }
       setLoading(false);
     }, (error) => {
@@ -123,8 +145,47 @@ const RestaurantDashboard = () => {
       setLoading(false);
     });
 
-    return () => off(ordersRef, 'value', unsubscribe);
-  }, [previousOrderIds]);
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch menu items for availability management
+  useEffect(() => {
+    setMenuLoading(true);
+    setMenuError('');
+
+    const menuItemsRef = collection(db, 'menuItems');
+    const unsubscribe = onSnapshot(
+      menuItemsRef,
+      (snapshot) => {
+        const items = snapshot.docs.map((docSnapshot) => {
+          const data = docSnapshot.data();
+          return {
+            docId: docSnapshot.id,
+            ...data,
+            available: data.available !== false,
+            variations: (data.variations || []).map((variation) => ({
+              ...variation,
+              available: variation.available !== false
+            }))
+          };
+        }).sort((a, b) => {
+          const categoryCompare = (a.category || '').localeCompare(b.category || '');
+          if (categoryCompare !== 0) return categoryCompare;
+          return (a.name || '').localeCompare(b.name || '');
+        });
+
+        setMenuItems(items);
+        setMenuLoading(false);
+      },
+      (error) => {
+        console.error('Error loading menu items:', error);
+        setMenuError('Failed to load menu items. Please try again.');
+        setMenuLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   // Sync selectedOrder with updated order data when orders change
   useEffect(() => {
@@ -485,6 +546,8 @@ const RestaurantDashboard = () => {
     return orderTypeMatch && statusMatch;
   });
 
+  const todayOrders = orders.filter(order => isToday(order.timestamp));
+
   // Filter orders for history view with search and filters
   const filteredHistoryOrders = orders.filter(order => {
     // Search filter
@@ -516,8 +579,91 @@ const RestaurantDashboard = () => {
       }
     }
 
+    // Date filter (single day)
+    if (historySelectedDate) {
+      if (!order.timestamp) return false;
+      const orderDate = new Date(order.timestamp);
+      if (Number.isNaN(orderDate.getTime())) return false;
+      const selectedDate = new Date(historySelectedDate);
+      if (orderDate.toDateString() !== selectedDate.toDateString()) return false;
+    }
+
     return true;
   }).sort((a, b) => b.timestamp - a.timestamp);
+
+  const updateMenuSavingKeys = (key, isSaving) => {
+    setMenuSavingKeys(prev => {
+      const updated = new Set(prev);
+      if (isSaving) {
+        updated.add(key);
+      } else {
+        updated.delete(key);
+      }
+      return updated;
+    });
+  };
+
+  const updateMenuItemAvailability = async (item, available) => {
+    if (!item.docId) return;
+    const savingKey = `item-${item.docId}`;
+    updateMenuSavingKeys(savingKey, true);
+    try {
+      const itemRef = doc(db, 'menuItems', item.docId);
+      await updateDoc(itemRef, {
+        available,
+        updatedAt: Date.now()
+      });
+    } catch (error) {
+      console.error('Error updating item availability:', error);
+      alert('Failed to update item availability. Please try again.');
+    } finally {
+      updateMenuSavingKeys(savingKey, false);
+    }
+  };
+
+  const updateMenuVariationAvailability = async (item, variationId, variationIndex, available) => {
+    if (!item.docId) return;
+    const savingKey = `variation-${item.docId}-${variationId ?? variationIndex}`;
+    updateMenuSavingKeys(savingKey, true);
+
+    try {
+      const updatedVariations = (item.variations || []).map((variation, index) => {
+        const matches = variation.id ? variation.id === variationId : index === variationIndex;
+        if (matches) {
+          return { ...variation, available };
+        }
+        return variation;
+      });
+
+      const itemRef = doc(db, 'menuItems', item.docId);
+      await updateDoc(itemRef, {
+        variations: updatedVariations,
+        updatedAt: Date.now()
+      });
+    } catch (error) {
+      console.error('Error updating variation availability:', error);
+      alert('Failed to update variation availability. Please try again.');
+    } finally {
+      updateMenuSavingKeys(savingKey, false);
+    }
+  };
+
+  const menuCategories = Array.from(
+    new Set(menuItems.map(item => item.category).filter(Boolean))
+  ).sort();
+
+  const filteredMenuItems = menuItems.filter(item => {
+    const matchesCategory = menuCategoryFilter === 'all' || item.category === menuCategoryFilter;
+    if (!matchesCategory) return false;
+
+    if (!menuSearch.trim()) return true;
+    const search = menuSearch.trim().toLowerCase();
+    const nameMatch = item.name?.toLowerCase().includes(search);
+    const variationMatch = (item.variations || []).some(variation =>
+      variation.name?.toLowerCase().includes(search)
+    );
+    return nameMatch || variationMatch;
+  });
 
   // Toggle order expansion in history view
   const toggleOrderExpansion = (orderId) => {
@@ -533,19 +679,19 @@ const RestaurantDashboard = () => {
   };
 
   const getOrderTypeCount = (type) => {
-    // Only count active orders (not completed) for order type counts
+    // Only count active orders (not completed) for today's orders
+    const sourceOrders = todayOrders.filter(order => order.status !== 'completed');
     if (type === 'takeaway') {
       // Include both 'takeaway' and 'pickup' orders in the takeaway count
-      return orders.filter(order => 
-        (order.orderType === 'takeaway' || order.orderType === 'pickup') && 
-        order.status !== 'completed'
+      return sourceOrders.filter(order => 
+        order.orderType === 'takeaway' || order.orderType === 'pickup'
       ).length;
     }
-    return orders.filter(order => order.orderType === type && order.status !== 'completed').length;
+    return sourceOrders.filter(order => order.orderType === type).length;
   };
 
   const getStatusCount = (status) => {
-    return orders.filter(order => order.status === status).length;
+    return todayOrders.filter(order => order.status === status).length;
   };
 
   // Function to group orders by status for better organization
@@ -611,6 +757,23 @@ const RestaurantDashboard = () => {
     );
   }
 
+  const headerContent = {
+    today: {
+      title: 'Restaurant Orders',
+      subtitle: 'Manage and track all incoming orders'
+    },
+    history: {
+      title: 'Order History',
+      subtitle: 'View and search through all past orders'
+    },
+    menu: {
+      title: 'Menu Availability',
+      subtitle: 'Manage menu items and availability on the main website'
+    }
+  };
+
+  const activeHeader = headerContent[viewMode] || headerContent.today;
+
   return (
     <div className="restaurant-dashboard">
       {/* New Order Notification Banner */}
@@ -648,51 +811,28 @@ const RestaurantDashboard = () => {
       <div className="dashboard-header">
         <div className="header-left">
           <div>
-            <h1>{viewMode === 'history' ? 'Order History' : 'Restaurant Orders'}</h1>
-            <p>{viewMode === 'history' ? 'View and search through all past orders' : 'Manage and track all incoming orders'}</p>
+            <h1>{activeHeader.title}</h1>
+            <p>{activeHeader.subtitle}</p>
           </div>
         </div>
         <div className="header-right">
-          {viewMode === 'today' && (
-            <button
-              onClick={() => setViewMode('history')}
-              style={{
-                marginRight: '1rem',
-                padding: '0.5rem 1rem',
-                backgroundColor: '#d4af37',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                transition: 'background-color 0.2s'
-              }}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#b8941f'}
-              onMouseOut={(e) => e.target.style.backgroundColor = '#d4af37'}
-            >
-              <FaHistory />
-              Order History
-            </button>
+          {viewMode !== 'menu' && (
+            <div className="status-bar">
+              <div className="status-item">
+                <span className="status-dot preparing"></span>
+                <span>Preparing ({getStatusCount('preparing')})</span>
+              </div>
+              <div className="status-item">
+                <span className="status-dot ready"></span>
+                <span>Ready ({getStatusCount('ready')})</span>
+              </div>
+              <div className="status-item">
+                <span className="status-dot completed"></span>
+                <span>Completed ({getStatusCount('completed')})</span>
+              </div>
+              <div className="current-time">{currentTime}</div>
+            </div>
           )}
-          <div className="status-bar">
-            <div className="status-item">
-              <span className="status-dot preparing"></span>
-              <span>Preparing ({getStatusCount('preparing')})</span>
-            </div>
-            <div className="status-item">
-              <span className="status-dot ready"></span>
-              <span>Ready ({getStatusCount('ready')})</span>
-            </div>
-            <div className="status-item">
-              <span className="status-dot completed"></span>
-              <span>Completed ({getStatusCount('completed')})</span>
-            </div>
-            <div className="current-time">{currentTime}</div>
-          </div>
           <button
             onClick={handleLogout}
             style={{
@@ -720,6 +860,47 @@ const RestaurantDashboard = () => {
       </div>
 
       <div className="dashboard-content">
+        <div className={`side-menu ${isSideMenuExpanded ? 'expanded' : 'collapsed'}`}>
+          <div className="menu-header">
+            {isSideMenuExpanded && <span className="menu-title">Menu</span>}
+            <button
+              className="menu-toggle"
+              onClick={() => setIsSideMenuExpanded(prev => !prev)}
+              aria-label={isSideMenuExpanded ? 'Collapse side menu' : 'Expand side menu'}
+            >
+              {isSideMenuExpanded ? <FaChevronLeft /> : <FaChevronRight />}
+            </button>
+          </div>
+          <div className="menu-list">
+            <button
+              className={`menu-item ${viewMode === 'today' ? 'active' : ''}`}
+              onClick={() => setViewMode('today')}
+            >
+              <FaUtensils />
+              <span className="menu-text">Dashboard</span>
+            </button>
+            <button
+              className={`menu-item ${viewMode === 'history' ? 'active' : ''}`}
+              onClick={() => {
+                setViewMode('history');
+                setSelectedOrder(null);
+              }}
+            >
+              <FaHistory />
+              <span className="menu-text">Order History</span>
+            </button>
+            <button
+              className={`menu-item ${viewMode === 'menu' ? 'active' : ''}`}
+              onClick={() => {
+                setViewMode('menu');
+                setSelectedOrder(null);
+              }}
+            >
+              <FaListAlt />
+              <span className="menu-text">Menu Availability</span>
+            </button>
+          </div>
+        </div>
 
         {/* Main Content */}
         <div className="main-content">
@@ -734,7 +915,7 @@ const RestaurantDashboard = () => {
                   onClick={() => setSelectedOrderType('all')}
                 >
                   <FaCheck />
-                  All Orders ({orders.filter(order => order.status !== 'completed').length})
+                  All Orders ({todayOrders.filter(order => order.status !== 'completed').length})
                 </button>
                 <button 
                   className={`filter-btn ${selectedOrderType === 'dine-in' ? 'active' : ''}`}
@@ -978,37 +1159,6 @@ const RestaurantDashboard = () => {
           {/* Order History Table View */}
           {viewMode === 'history' && (
             <div style={{ padding: '1rem' }}>
-              {/* Back to Dashboard Button */}
-              <button
-                onClick={() => setViewMode('today')}
-                style={{
-                  marginBottom: '1rem',
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#f3f4f6',
-                  color: '#374151',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  transition: 'all 0.2s'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.backgroundColor = '#e5e7eb';
-                  e.target.style.borderColor = '#9ca3af';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.backgroundColor = '#f3f4f6';
-                  e.target.style.borderColor = '#d1d5db';
-                }}
-              >
-                <FaArrowLeft />
-                Back to Dashboard
-              </button>
-              
               {/* Search and Filters */}
               <div style={{ 
                 marginBottom: '1.5rem', 
@@ -1036,10 +1186,55 @@ const RestaurantDashboard = () => {
                         padding: '0.75rem 0.75rem 0.75rem 2.5rem',
                         border: '2px solid #e5e7eb',
                         borderRadius: '8px',
-                        fontSize: '0.95rem'
+                        fontSize: '0.95rem',
+                        height: '48px'
                       }}
                     />
                   </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    <input
+                      type={historyDateInputType}
+                      value={historySelectedDate}
+                      onChange={(e) => setHistorySelectedDate(e.target.value)}
+                      onFocus={() => setHistoryDateInputType('date')}
+                      onBlur={(e) => {
+                        if (!e.target.value) {
+                          setHistoryDateInputType('text');
+                        }
+                      }}
+                      placeholder="Select date"
+                      aria-label="Select date"
+                      className="history-date-input"
+                      style={{
+                        padding: '0.75rem',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '8px',
+                        fontSize: '0.95rem',
+                        minWidth: '150px',
+                        height: '48px'
+                      }}
+                    />
+                  </div>
+                  {historySelectedDate && (
+                    <button
+                      type="button"
+                      onClick={() => setHistorySelectedDate('')}
+                      style={{
+                        padding: '0.6rem 0.9rem',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '8px',
+                        backgroundColor: '#f9fafb',
+                        color: '#374151',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        height: '48px'
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
                 <select
                   value={historyStatusFilter}
@@ -1253,10 +1448,121 @@ const RestaurantDashboard = () => {
               </div>
             </div>
           )}
+
+          {/* Menu Availability View */}
+          {viewMode === 'menu' && (
+            <div style={{ padding: '1rem' }}>
+              {menuLoading ? (
+                <div className="text-center p-8">
+                  <div className="loading-spinner"></div>
+                  <p className="mt-4">Loading menu items...</p>
+                </div>
+              ) : menuError ? (
+                <div className="text-center p-8">
+                  <p style={{ color: '#dc3545' }}>{menuError}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="menu-availability-toolbar">
+                    <input
+                      type="text"
+                      className="menu-availability-search"
+                      placeholder="Search menu items or variations..."
+                      value={menuSearch}
+                      onChange={(e) => setMenuSearch(e.target.value)}
+                    />
+                    <select
+                      className="menu-availability-filter"
+                      value={menuCategoryFilter}
+                      onChange={(e) => setMenuCategoryFilter(e.target.value)}
+                    >
+                      <option value="all">All categories</option>
+                      {menuCategories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="menu-availability-meta">
+                      {filteredMenuItems.length} item{filteredMenuItems.length !== 1 ? 's' : ''} shown
+                    </div>
+                  </div>
+
+                  {filteredMenuItems.length === 0 ? (
+                    <div className="text-center p-8" style={{ color: '#6b7280' }}>
+                      No menu items match your filters.
+                    </div>
+                  ) : (
+                    <div className="menu-availability-list">
+                      {filteredMenuItems.map((item) => {
+                        const itemAvailable = item.available !== false;
+                        const itemKey = item.docId || item.id;
+                        const itemSaving = menuSavingKeys.has(`item-${item.docId}`);
+
+                        return (
+                          <div key={itemKey} className="menu-availability-card">
+                            <div className="menu-availability-header">
+                              <div>
+                                <h3 className="menu-availability-title">{item.name || 'Unnamed item'}</h3>
+                                <div className="menu-availability-meta">
+                                  {(item.category || 'Uncategorized')} • Base ${item.price?.toFixed(2) || '0.00'}
+                                </div>
+                              </div>
+                              <label className="menu-availability-toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={itemAvailable}
+                                  onChange={(e) => updateMenuItemAvailability(item, e.target.checked)}
+                                  disabled={itemSaving}
+                                />
+                                {itemSaving ? 'Saving...' : itemAvailable ? 'Available' : 'Unavailable'}
+                              </label>
+                            </div>
+
+                            {item.variations?.length > 0 && (
+                              <div className="menu-availability-variations">
+                                {item.variations.map((variation, index) => {
+                                  const variationAvailable = variation.available !== false;
+                                  const variationKey = `variation-${item.docId}-${variation.id || index}`;
+                                  const variationSaving = menuSavingKeys.has(variationKey);
+
+                                  return (
+                                    <div key={variation.id || `${itemKey}-${index}`} className="menu-availability-variation">
+                                      <div>
+                                        <div className="menu-availability-variation-name">
+                                          {variation.name || 'Variation'}
+                                        </div>
+                                        <div className="menu-availability-variation-price">
+                                          ${variation.price?.toFixed(2) || item.price?.toFixed(2) || '0.00'}
+                                        </div>
+                                      </div>
+                                      <label className="menu-availability-toggle">
+                                        <input
+                                          type="checkbox"
+                                          checked={variationAvailable}
+                                          onChange={(e) => updateMenuVariationAvailability(item, variation.id, index, e.target.checked)}
+                                          disabled={variationSaving}
+                                        />
+                                        {variationSaving ? 'Saving...' : variationAvailable ? 'Available' : 'Unavailable'}
+                                      </label>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Order Details Sidebar */}
-        {selectedOrder && (
+        {selectedOrder && viewMode === 'today' && (
           <div className="order-details-sidebar">
             <div className="sidebar-header">
               <h3>Order Details {selectedOrder.orderNumber}</h3>

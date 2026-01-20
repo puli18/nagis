@@ -14,13 +14,24 @@ import {
   FaPhone,
   FaEnvelope,
   FaCreditCard,
-  FaLink
+  FaLink,
+  FaChevronLeft,
+  FaChevronRight
 } from 'react-icons/fa';
 import { getMenuItemsFromFirebase, getCategoriesFromFirebase } from '../utils/firebaseUpload';
-import { ref, get, update, remove } from 'firebase/database';
+import { ref, get, update, remove, onValue } from 'firebase/database';
 import { collection, addDoc, updateDoc, deleteDoc, query, where, getDocs } from 'firebase/firestore';
 import { realtimeDb, db } from '../firebase/config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import {
+  formatNextOpening,
+  getBusinessHoursDayOrder,
+  getDefaultBusinessHours,
+  getNextOpeningDate,
+  getZonedNow,
+  isWithinBusinessHours,
+  normalizeBusinessHours
+} from '../utils/businessHours';
 
 const AdminPage = () => {
   // State management
@@ -39,10 +50,24 @@ const AdminPage = () => {
   });
   const [stripeAccount, setStripeAccount] = useState(null);
   const [isConnectingStripe, setIsConnectingStripe] = useState(false);
+  const [businessHours, setBusinessHours] = useState(getDefaultBusinessHours());
+  const [businessHoursLoading, setBusinessHoursLoading] = useState(true);
+  const [businessHoursSaving, setBusinessHoursSaving] = useState(false);
+  const [businessHoursNotice, setBusinessHoursNotice] = useState('');
+  const [isSideMenuExpanded, setIsSideMenuExpanded] = useState(true);
 
   // Form states
   const [editingItem, setEditingItem] = useState(null);
   const [showAddItemForm, setShowAddItemForm] = useState(false);
+  const dietaryOptions = [
+    'Vegetarian',
+    'Vegan',
+    'Gluten Free',
+    'Dairy Free',
+    'Nut Free',
+    'Spicy',
+    'Halal'
+  ];
 
   // New item/category form data
   const [newItem, setNewItem] = useState({
@@ -52,7 +77,8 @@ const AdminPage = () => {
     description: '',
     dietary: [],
     popular: false,
-    image: ''
+    image: '',
+    variations: []
   });
 
   // Handle form input changes - use a more stable approach
@@ -74,6 +100,27 @@ const AdminPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const hoursRef = ref(realtimeDb, 'businessHours');
+    const unsubscribe = onValue(
+      hoursRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setBusinessHours(normalizeBusinessHours(snapshot.val()));
+        } else {
+          setBusinessHours(getDefaultBusinessHours());
+        }
+        setBusinessHoursLoading(false);
+      },
+      (error) => {
+        console.error('Error loading business hours:', error);
+        setBusinessHoursLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   const loadAllData = async () => {
     setIsLoading(true);
     try {
@@ -83,7 +130,6 @@ const AdminPage = () => {
         loadCategories(),
         loadStripeAccount()
       ]);
-      calculateStats();
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -148,6 +194,10 @@ const AdminPage = () => {
     });
   };
 
+  useEffect(() => {
+    calculateStats();
+  }, [orders, menuItems, categories]);
+
   // Order management functions
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
@@ -186,9 +236,20 @@ const AdminPage = () => {
         return;
       }
 
+      const cleanedVariations = (newItem.variations || [])
+        .filter((variation) => variation.name && variation.price !== '')
+        .map((variation, index) => ({
+          id: variation.id || `var-${Date.now()}-${index}`,
+          name: variation.name,
+          price: parseFloat(variation.price),
+          available: variation.available !== false
+        }))
+        .filter((variation) => !Number.isNaN(variation.price));
+
       const itemData = {
         ...newItem,
         price: parseFloat(newItem.price),
+        variations: cleanedVariations,
         updatedAt: Date.now()
       };
       
@@ -224,7 +285,7 @@ const AdminPage = () => {
       
       setShowAddItemForm(false);
       setEditingItem(null);
-      setNewItem({ name: '', category: '', price: '', description: '', dietary: [], popular: false, image: '' });
+      setNewItem({ name: '', category: '', price: '', description: '', dietary: [], popular: false, image: '', variations: [] });
       await loadMenuItems();
     } catch (error) {
       console.error('Error saving item:', error);
@@ -244,7 +305,13 @@ const AdminPage = () => {
       description: item.description,
       dietary: item.dietary || [],
       popular: item.popular || false,
-      image: item.image || ''
+      image: item.image || '',
+      variations: (item.variations || []).map((variation) => ({
+        id: variation.id,
+        name: variation.name || '',
+        price: variation.price?.toString() || '',
+        available: variation.available !== false
+      }))
     });
     setShowAddItemForm(true);
   }, []);
@@ -375,10 +442,86 @@ const AdminPage = () => {
     }
   };
 
+  const handleBusinessHoursChange = (dayKey, field, value) => {
+    setBusinessHours((prev) => {
+      const normalized = normalizeBusinessHours(prev);
+      return {
+        ...normalized,
+        days: {
+          ...normalized.days,
+          [dayKey]: {
+            ...normalized.days[dayKey],
+            [field]: value
+          }
+        }
+      };
+    });
+  };
+
+  const handleSaveBusinessHours = async () => {
+    setBusinessHoursSaving(true);
+    setBusinessHoursNotice('');
+    try {
+      const normalized = normalizeBusinessHours(businessHours);
+      const hoursRef = ref(realtimeDb, 'businessHours');
+      await update(hoursRef, {
+        ...normalized,
+        updatedAt: Date.now()
+      });
+      setBusinessHoursNotice('Business hours updated.');
+    } catch (error) {
+      console.error('Error saving business hours:', error);
+      setBusinessHoursNotice('Failed to update business hours. Please try again.');
+    } finally {
+      setBusinessHoursSaving(false);
+    }
+  };
+
+  const handleAddVariation = () => {
+    setNewItem((prev) => ({
+      ...prev,
+      variations: [
+        ...(prev.variations || []),
+        { id: '', name: '', price: '', available: true }
+      ]
+    }));
+  };
+
+  const handleRemoveVariation = (index) => {
+    setNewItem((prev) => ({
+      ...prev,
+      variations: (prev.variations || []).filter((_, idx) => idx !== index)
+    }));
+  };
+
+  const handleVariationChange = (index, field, value) => {
+    setNewItem((prev) => ({
+      ...prev,
+      variations: (prev.variations || []).map((variation, idx) => {
+        if (idx !== index) return variation;
+        return {
+          ...variation,
+          [field]: value
+        };
+      })
+    }));
+  };
+
+  const handleDietaryToggle = (tag) => {
+    setNewItem((prev) => {
+      const current = prev.dietary || [];
+      const exists = current.includes(tag);
+      return {
+        ...prev,
+        dietary: exists ? current.filter((item) => item !== tag) : [...current, tag]
+      };
+    });
+  };
+
 
   // Tab content components
   const DashboardTab = () => (
-    <div className="admin-dashboard">
+    <div className="admin-section">
       {/* Stats Cards */}
       <div className="stats-grid">
         <div className="stat-card">
@@ -573,70 +716,194 @@ const AdminPage = () => {
               <button onClick={() => {
                 setShowAddItemForm(false);
                 setEditingItem(null);
-                setNewItem({ name: '', category: '', price: '', description: '', dietary: [], popular: false, image: '' });
+                setNewItem({ name: '', category: '', price: '', description: '', dietary: [], popular: false, image: '', variations: [] });
               }}>×</button>
             </div>
-            <form onSubmit={handleAddItem} key={editingItem ? `edit-${editingItem.id}` : 'add-new'}>
-              <div className="form-group">
-                <label>Name</label>
-                <input
-                  type="text"
-                  value={newItem.name}
-                  onChange={(e) => handleItemInputChange('name', e.target.value)}
-                  required
-                  autoFocus
-                />
+            <form
+              onSubmit={handleAddItem}
+              key={editingItem ? `edit-${editingItem.id}` : 'add-new'}
+              className="menu-item-form"
+            >
+              <div className="form-section">
+                <div className="section-title">Core details</div>
+                <div className="form-row">
+                  <div className="form-field">
+                    <label htmlFor="menu-item-name">Item name</label>
+                    <input
+                      id="menu-item-name"
+                      type="text"
+                      value={newItem.name}
+                      onChange={(e) => handleItemInputChange('name', e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label htmlFor="menu-item-category">Category</label>
+                    <select
+                      id="menu-item-category"
+                      value={newItem.category}
+                      onChange={(e) => handleItemInputChange('category', e.target.value)}
+                      required
+                    >
+                      <option value="">Select category</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-field">
+                    <label htmlFor="menu-item-price">Base price</label>
+                    <input
+                      id="menu-item-price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newItem.price}
+                      onChange={(e) => handleItemInputChange('price', e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-field toggle-field">
+                    <label className="toggle-label">
+                      <input
+                        type="checkbox"
+                        checked={newItem.popular}
+                        onChange={(e) => handleItemInputChange('popular', e.target.checked)}
+                      />
+                      Feature as popular
+                    </label>
+                    <span className="field-hint">Highlights the item on the menu.</span>
+                  </div>
+                </div>
               </div>
-              
-              <div className="form-group">
-                <label>Category</label>
-                <select
-                  value={newItem.category}
-                  onChange={(e) => handleItemInputChange('category', e.target.value)}
-                  required
-                >
-                  <option value="">Select Category</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+
+              <div className="form-section">
+                <div className="section-title">Description & media</div>
+                <div className="form-row">
+                  <div className="form-field full">
+                    <label htmlFor="menu-item-description">Description</label>
+                    <textarea
+                      id="menu-item-description"
+                      value={newItem.description}
+                      onChange={(e) => handleItemInputChange('description', e.target.value)}
+                      placeholder="Add a short, enticing description for this menu item."
+                    />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-field">
+                    <label htmlFor="menu-item-image">Image URL</label>
+                    <input
+                      id="menu-item-image"
+                      type="url"
+                      value={newItem.image}
+                      onChange={(e) => handleItemInputChange('image', e.target.value)}
+                      placeholder="https://..."
+                    />
+                    <span className="field-hint">Paste a full image URL for the menu card.</span>
+                  </div>
+                  <div className="form-field image-preview">
+                    <label>Preview</label>
+                    <div className="image-preview-frame">
+                      {newItem.image ? (
+                        <img src={newItem.image} alt={`${newItem.name} preview`} />
+                      ) : (
+                        <span>No image selected</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-section">
+                <div className="section-title">Dietary tags</div>
+                <div className="tag-grid">
+                  {dietaryOptions.map((tag) => (
+                    <label
+                      key={tag}
+                      className={`tag-option ${newItem.dietary?.includes(tag) ? 'selected' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={newItem.dietary?.includes(tag)}
+                        onChange={() => handleDietaryToggle(tag)}
+                      />
+                      <span>{tag}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
-              
-              <div className="form-group">
-                <label>Price</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={newItem.price}
-                  onChange={(e) => handleItemInputChange('price', e.target.value)}
-                  required
-                />
+
+              <div className="form-section">
+                <div className="section-title">Variations</div>
+                <div className="section-subtitle">Add sizes, portions, or add-ons with pricing.</div>
+                <div className="variation-header">
+                  <label>Variation list</label>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleAddVariation}
+                  >
+                    <FaPlus /> Add Variation
+                  </button>
+                </div>
+                {(newItem.variations || []).length === 0 ? (
+                  <div className="variation-empty">No variations added yet.</div>
+                ) : (
+                  <div className="variation-list">
+                    <div className="variation-row variation-header-row">
+                      <span>Name</span>
+                      <span>Price</span>
+                      <span>Available</span>
+                      <span></span>
+                    </div>
+                    {newItem.variations.map((variation, index) => (
+                      <div key={variation.id || index} className="variation-row">
+                        <input
+                          type="text"
+                          placeholder="Variation name"
+                          value={variation.name}
+                          onChange={(e) => handleVariationChange(index, 'name', e.target.value)}
+                          required
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Price"
+                          value={variation.price}
+                          onChange={(e) => handleVariationChange(index, 'price', e.target.value)}
+                          required
+                        />
+                        <label className="variation-available">
+                          <input
+                            type="checkbox"
+                            checked={variation.available !== false}
+                            onChange={(e) => handleVariationChange(index, 'available', e.target.checked)}
+                          />
+                          Available
+                        </label>
+                        <button
+                          type="button"
+                          className="btn btn-danger"
+                          onClick={() => handleRemoveVariation(index)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              
-              <div className="form-group">
-                <label>Description</label>
-                <textarea
-                  value={newItem.description}
-                  onChange={(e) => handleItemInputChange('description', e.target.value)}
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={newItem.popular}
-                    onChange={(e) => handleItemInputChange('popular', e.target.checked)}
-                  />
-                  Popular Item
-                </label>
-              </div>
-              
+
               <div className="modal-actions">
                 <button type="button" onClick={() => {
                   setShowAddItemForm(false);
                   setEditingItem(null);
-                  setNewItem({ name: '', category: '', price: '', description: '', dietary: [], popular: false, image: '' });
+                  setNewItem({ name: '', category: '', price: '', description: '', dietary: [], popular: false, image: '', variations: [] });
                 }}>
                   Cancel
                 </button>
@@ -834,56 +1101,195 @@ const AdminPage = () => {
     </div>
   );
 
-  return (
-    <div className="admin-page">
-      <div className="admin-header">
-        <h1>Nagi's Ceylon Catering - Admin Panel</h1>
-        <p>Manage your restaurant operations</p>
-      </div>
+  const BusinessHoursTab = () => {
+    const normalizedHours = normalizeBusinessHours(businessHours);
+    const now = getZonedNow('Australia/Perth');
+    const isOpenNow = isWithinBusinessHours(normalizedHours, now);
+    const nextOpeningLabel = formatNextOpening(
+      getNextOpeningDate(normalizedHours, now),
+      now
+    );
 
-      <div className="admin-layout">
-        {/* Sidebar Navigation */}
-        <div className="admin-sidebar">
-          <nav className="admin-nav">
-            <button 
-              className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => setActiveTab('dashboard')}
-            >
-              <FaChartBar /> Dashboard
-            </button>
-            
-            <button 
-              className={`nav-item ${activeTab === 'orders' ? 'active' : ''}`}
-              onClick={() => setActiveTab('orders')}
-            >
-              <FaClipboardList /> Orders
-            </button>
-            
-            <button 
-              className={`nav-item ${activeTab === 'menu' ? 'active' : ''}`}
-              onClick={() => setActiveTab('menu')}
-            >
-              <FaUtensils /> Menu
-            </button>
-            
-            <button 
-              className={`nav-item ${activeTab === 'analytics' ? 'active' : ''}`}
-              onClick={() => setActiveTab('analytics')}
-            >
-              <FaChartBar /> Analytics
-            </button>
-            
-            <button 
-              className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('settings')}
-            >
-              <FaCog /> Settings
-            </button>
-          </nav>
+    return (
+      <div className="business-hours">
+        <div className="section-header">
+          <h3>Business Hours</h3>
+          <button
+            className="btn btn-primary"
+            onClick={handleSaveBusinessHours}
+            disabled={businessHoursSaving || businessHoursLoading}
+          >
+            {businessHoursSaving ? 'Saving...' : 'Save Changes'}
+          </button>
         </div>
 
-        {/* Main Content */}
-        <div className="admin-content">
+        {businessHoursLoading ? (
+          <div className="admin-loading">
+            <div className="loading-spinner"></div>
+            <p>Loading business hours...</p>
+          </div>
+        ) : (
+          <>
+            <div className="business-hours-status">
+              <span className={`status-pill ${isOpenNow ? 'open' : 'closed'}`}>
+                Currently {isOpenNow ? 'Open' : 'Closed'}
+              </span>
+              {!isOpenNow && nextOpeningLabel && (
+                <span className="next-opening">Next opening: {nextOpeningLabel}</span>
+              )}
+            </div>
+
+            {businessHoursNotice && (
+              <div className="business-hours-notice">
+                {businessHoursNotice}
+              </div>
+            )}
+
+            <div className="business-hours-grid">
+              {getBusinessHoursDayOrder().map((dayKey) => {
+                const day = normalizedHours.days[dayKey];
+                const dayLabel = dayKey.charAt(0).toUpperCase() + dayKey.slice(1);
+
+                return (
+                  <div key={dayKey} className="business-hours-row">
+                    <div className="business-hours-day">{dayLabel}</div>
+                    <label className="business-hours-toggle">
+                      <input
+                        type="checkbox"
+                        checked={!day.closed}
+                        onChange={(e) => handleBusinessHoursChange(dayKey, 'closed', !e.target.checked)}
+                      />
+                      <span>{day.closed ? 'Closed' : 'Open'}</span>
+                    </label>
+                    <div className="business-hours-times">
+                      <input
+                        type="time"
+                        value={day.open}
+                        onChange={(e) => handleBusinessHoursChange(dayKey, 'open', e.target.value)}
+                        disabled={day.closed}
+                      />
+                      <span>to</span>
+                      <input
+                        type="time"
+                        value={day.close}
+                        onChange={(e) => handleBusinessHoursChange(dayKey, 'close', e.target.value)}
+                        disabled={day.closed}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const headerContent = {
+    dashboard: {
+      title: 'Admin Dashboard',
+      subtitle: 'Overview of orders, menu, and performance'
+    },
+    orders: {
+      title: 'Order Management',
+      subtitle: 'Review and update incoming orders'
+    },
+    menu: {
+      title: 'Menu Management',
+      subtitle: 'Add, edit, or remove menu items'
+    },
+    analytics: {
+      title: 'Analytics & Reports',
+      subtitle: 'Track performance and recent activity'
+    },
+    'business-hours': {
+      title: 'Business Hours',
+      subtitle: 'Set opening days and service times'
+    },
+    settings: {
+      title: 'Settings & Configuration',
+      subtitle: 'Manage integrations and environment settings'
+    }
+  };
+
+  const activeHeader = headerContent[activeTab] || headerContent.dashboard;
+
+  return (
+    <div className="restaurant-dashboard admin-dashboard">
+      <div className="dashboard-header">
+        <div className="header-left">
+          <div>
+            <h1>{activeHeader.title}</h1>
+            <p>{activeHeader.subtitle}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="dashboard-content">
+        <div className={`side-menu ${isSideMenuExpanded ? 'expanded' : 'collapsed'}`}>
+          <div className="menu-header">
+            {isSideMenuExpanded && <span className="menu-title">Admin</span>}
+            <button
+              className="menu-toggle"
+              onClick={() => setIsSideMenuExpanded(prev => !prev)}
+              aria-label={isSideMenuExpanded ? 'Collapse side menu' : 'Expand side menu'}
+            >
+              {isSideMenuExpanded ? <FaChevronLeft /> : <FaChevronRight />}
+            </button>
+          </div>
+          <div className="menu-list">
+            <button 
+              className={`menu-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+              onClick={() => setActiveTab('dashboard')}
+            >
+              <FaChartBar />
+              <span className="menu-text">Dashboard</span>
+            </button>
+            
+            <button 
+              className={`menu-item ${activeTab === 'orders' ? 'active' : ''}`}
+              onClick={() => setActiveTab('orders')}
+            >
+              <FaClipboardList />
+              <span className="menu-text">Orders</span>
+            </button>
+            
+            <button 
+              className={`menu-item ${activeTab === 'menu' ? 'active' : ''}`}
+              onClick={() => setActiveTab('menu')}
+            >
+              <FaUtensils />
+              <span className="menu-text">Menu</span>
+            </button>
+            
+            <button 
+              className={`menu-item ${activeTab === 'analytics' ? 'active' : ''}`}
+              onClick={() => setActiveTab('analytics')}
+            >
+              <FaChartBar />
+              <span className="menu-text">Analytics</span>
+            </button>
+
+            <button 
+              className={`menu-item ${activeTab === 'business-hours' ? 'active' : ''}`}
+              onClick={() => setActiveTab('business-hours')}
+            >
+              <FaClock />
+              <span className="menu-text">Business Hours</span>
+            </button>
+            
+            <button 
+              className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`}
+              onClick={() => setActiveTab('settings')}
+            >
+              <FaCog />
+              <span className="menu-text">Settings</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="main-content admin-main-content">
           {isLoading ? (
             <div className="admin-loading">
               <div className="loading-spinner"></div>
@@ -895,6 +1301,7 @@ const AdminPage = () => {
               {activeTab === 'orders' && <OrdersTab />}
               {activeTab === 'menu' && <MenuTab />}
               {activeTab === 'analytics' && <AnalyticsTab />}
+              {activeTab === 'business-hours' && <BusinessHoursTab />}
               {activeTab === 'settings' && <SettingsTab />}
             </>
           )}

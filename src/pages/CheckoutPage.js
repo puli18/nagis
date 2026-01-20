@@ -8,6 +8,8 @@ import { Elements, CardElement, useStripe, useElements } from '@stripe/react-str
 import { createPaymentIntent, confirmPayment } from '../services/firebaseFunctions';
 import { ref, get } from 'firebase/database';
 import { realtimeDb } from '../firebase/config';
+import { useBusinessHours } from '../context/BusinessHoursContext';
+import { formatNextOpening } from '../utils/businessHours';
 
 // Payment Method Selection Component
 const PaymentMethodSelector = ({ selectedMethod, onMethodChange }) => {
@@ -56,7 +58,7 @@ const PaymentMethodSelector = ({ selectedMethod, onMethodChange }) => {
 };
 
 // Enhanced Payment Form Component
-const PaymentForm = ({ subtotal, total, formData, items, orderType, onSuccess, onError, isProcessing, setIsProcessing, paymentMethod }) => {
+const PaymentForm = ({ subtotal, total, formData, items, orderType, onSuccess, onError, isProcessing, setIsProcessing, paymentMethod, isCheckoutDisabled }) => {
   const stripe = useStripe();
   const elements = useElements();
   const [paymentStatus, setPaymentStatus] = useState('');
@@ -64,6 +66,11 @@ const PaymentForm = ({ subtotal, total, formData, items, orderType, onSuccess, o
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isCheckoutDisabled) {
+      setPaymentStatus('We are currently closed. Please come back during business hours.');
+      return;
+    }
     
     if (!stripe || !elements) {
       return;
@@ -157,8 +164,8 @@ const PaymentForm = ({ subtotal, total, formData, items, orderType, onSuccess, o
         <div style={{ 
           marginBottom: '1rem', 
           padding: '0.5rem', 
-          backgroundColor: paymentStatus.includes('warning') ? '#fff3cd' : '#d4edda',
-          border: paymentStatus.includes('warning') ? '1px solid #ffeaa7' : '1px solid #c3e6cb',
+          backgroundColor: paymentStatus.toLowerCase().includes('warning') || paymentStatus.toLowerCase().includes('closed') ? '#fff3cd' : '#d4edda',
+          border: paymentStatus.toLowerCase().includes('warning') || paymentStatus.toLowerCase().includes('closed') ? '1px solid #ffeaa7' : '1px solid #c3e6cb',
           borderRadius: '4px',
           fontSize: '0.9rem'
         }}>
@@ -169,7 +176,7 @@ const PaymentForm = ({ subtotal, total, formData, items, orderType, onSuccess, o
       <button
         type="submit"
         className="btn btn-primary w-full"
-        disabled={!stripe || isProcessing}
+        disabled={!stripe || isProcessing || isCheckoutDisabled}
         style={{ fontSize: '1.1rem', padding: '1rem', marginTop: '1rem' }}
       >
         {isProcessing ? (
@@ -194,6 +201,9 @@ const CheckoutPage = () => {
     getTotal,
     clearCart
   } = useCart();
+  const { isOpenNow, nextOpeningDate, isLoading: businessHoursLoading } = useBusinessHours();
+  const checkoutDisabled = !businessHoursLoading && !isOpenNow;
+  const nextOpeningLabel = formatNextOpening(nextOpeningDate);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -359,6 +369,12 @@ const CheckoutPage = () => {
           <div>
             <div className="card p-4">
               <h2>Order Details</h2>
+
+              {checkoutDisabled && (
+                <div className="closed-order-note">
+                  We are closed now. {nextOpeningLabel && `Next opening: ${nextOpeningLabel}.`}
+                </div>
+              )}
               
               {/* Order Items */}
               <div className="mb-4">
@@ -649,6 +665,7 @@ const CheckoutPage = () => {
                     isProcessing={isProcessing}
                     setIsProcessing={setIsProcessing}
                     paymentMethod={paymentMethod}
+                    isCheckoutDisabled={checkoutDisabled}
                   />
                 </div>
               </div>

@@ -31,7 +31,11 @@ export const fetchMenuItems = async () => {
         description: data.description,
         dietary: data.dietary || [],
         popular: data.popular || false,
-        variations: data.variations || [],
+        variations: (data.variations || []).map(variation => ({
+          ...variation,
+          available: variation.available !== false
+        })),
+        available: data.available !== false,
         image: data.image || null,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt
@@ -123,7 +127,11 @@ export const fetchMenuItemsByCategory = async (categoryId) => {
           description: data.description,
           dietary: data.dietary || [],
           popular: data.popular || false,
-          variations: data.variations || [],
+          variations: (data.variations || []).map(variation => ({
+            ...variation,
+            available: variation.available !== false
+          })),
+          available: data.available !== false,
           image: data.image || null,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt
@@ -160,7 +168,11 @@ export const fetchPopularItems = async () => {
           description: data.description,
           dietary: data.dietary || [],
           popular: data.popular || false,
-          variations: data.variations || [],
+          variations: (data.variations || []).map(variation => ({
+            ...variation,
+            available: variation.available !== false
+          })),
+          available: data.available !== false,
           image: data.image || null,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt
@@ -196,7 +208,11 @@ export const fetchMenuItemById = async (itemId) => {
           description: data.description,
           dietary: data.dietary || [],
           popular: data.popular || false,
-          variations: data.variations || [],
+          variations: (data.variations || []).map(variation => ({
+            ...variation,
+            available: variation.available !== false
+          })),
+          available: data.available !== false,
           image: data.image || null,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt

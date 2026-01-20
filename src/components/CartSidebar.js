@@ -3,6 +3,8 @@ import { FaTimes, FaPlus, FaMinus, FaShoppingBag } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 import { placeholderImage } from '../utils/placeholderImage';
 import { useNavigate } from 'react-router-dom';
+import { useBusinessHours } from '../context/BusinessHoursContext';
+import { formatNextOpening } from '../utils/businessHours';
 
 const CartSidebar = () => {
   const navigate = useNavigate();
@@ -17,6 +19,9 @@ const CartSidebar = () => {
     clearCart,
     createCartItemId
   } = useCart();
+  const { isOpenNow, nextOpeningDate, isLoading } = useBusinessHours();
+  const checkoutDisabled = !isLoading && !isOpenNow;
+  const nextOpeningLabel = formatNextOpening(nextOpeningDate);
 
   const handleQuantityChange = (item, newQuantity) => {
     const cartItemId = createCartItemId(item);
@@ -29,6 +34,9 @@ const CartSidebar = () => {
   };
 
   const handleCheckout = () => {
+    if (checkoutDisabled) {
+      return;
+    }
     toggleCart(); // Close the cart sidebar
     navigate('/checkout'); // Navigate to checkout page
   };
@@ -135,11 +143,18 @@ const CartSidebar = () => {
             <span>${(getSubtotal() + Math.min(getServiceFee(), 3)).toFixed(2)}</span>
           </div>
 
+          {checkoutDisabled && (
+            <div className="closed-order-note">
+              We are closed now. {nextOpeningLabel && `Next opening: ${nextOpeningLabel}.`}
+            </div>
+          )}
+
           <button
             className="btn btn-primary w-full mt-3"
             onClick={handleCheckout}
+            disabled={checkoutDisabled}
           >
-            Proceed to Checkout
+            {checkoutDisabled ? 'Closed - Checkout Disabled' : 'Proceed to Checkout'}
           </button>
 
           <button

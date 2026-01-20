@@ -1127,6 +1127,11 @@ input {
   .menu-grid {
     grid-template-columns: 1fr;
   }
+
+  .business-hours-row {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
   
   .cart-sidebar {
     width: 100%;
@@ -2113,6 +2118,101 @@ select.variation-dropdown option {
   height: calc(100vh - 5rem);
 }
 
+.side-menu {
+  background: #111827;
+  color: #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.2s ease;
+  flex-shrink: 0;
+}
+
+.side-menu.expanded {
+  width: 220px;
+}
+
+.side-menu.collapsed {
+  width: 72px;
+}
+
+.menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.side-menu.collapsed .menu-header {
+  justify-content: center;
+}
+
+.menu-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.menu-toggle {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem;
+}
+
+.side-menu .menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.side-menu .menu-item:hover,
+.side-menu .menu-item.active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.side-menu .menu-text {
+  white-space: nowrap;
+  transition: opacity 0.2s ease, width 0.2s ease;
+}
+
+.side-menu.collapsed .menu-text {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.side-menu.collapsed .menu-item {
+  justify-content: center;
+  gap: 0;
+}
+
 .restaurant-dashboard .main-content {
   flex: 1;
   padding: 1.5rem 2rem;
@@ -2189,6 +2289,17 @@ select.variation-dropdown option {
   background: #111827;
   color: white;
   border-color: #111827;
+}
+
+.history-date-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: #ffffff;
+  color: #111827;
+}
+
+.history-date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
 }
 
 .orders-grid {
@@ -2547,6 +2658,44 @@ select.variation-dropdown option {
     flex-direction: column;
   }
   
+  .side-menu {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .side-menu.expanded,
+  .side-menu.collapsed {
+    width: 100%;
+  }
+
+  .menu-header {
+    padding: 0.75rem 1rem;
+    border-bottom: none;
+  }
+
+  .menu-toggle {
+    display: none;
+  }
+
+  .menu-list {
+    flex-direction: row;
+    padding: 0.5rem 1rem;
+    flex-wrap: wrap;
+  }
+
+  .side-menu.collapsed .menu-text {
+    opacity: 1;
+    width: auto;
+  }
+
+  .side-menu.collapsed .menu-item {
+    justify-content: flex-start;
+    gap: 0.75rem;
+  }
+
   .order-details-sidebar {
     width: 100%;
     border-left: none;
@@ -3160,6 +3309,168 @@ select.variation-dropdown option {
   background-color: #f8f9fa;
 }
 
+/* Admin Dashboard (Dashboard layout) */
+.admin-dashboard {
+  background-color: #f8fafc;
+}
+
+.admin-dashboard .dashboard-content {
+  margin-top: 0;
+}
+
+.admin-dashboard .side-menu {
+  background: var(--accent-green);
+  border-right: none;
+}
+
+.admin-dashboard .side-menu .menu-item:hover,
+.admin-dashboard .side-menu .menu-item.active {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.admin-dashboard .admin-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 3rem 1rem;
+  color: #6b7280;
+}
+
+.admin-dashboard .admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.admin-dashboard .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+
+.admin-dashboard .stat-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.admin-dashboard .stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #111827;
+  color: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.admin-dashboard .stat-icon.pending {
+  background: #f59e0b;
+}
+
+.admin-dashboard .stat-icon.completed {
+  background: #10b981;
+}
+
+.admin-dashboard .stat-icon.revenue {
+  background: #2563eb;
+}
+
+.admin-dashboard .orders-management,
+.admin-dashboard .menu-management,
+.admin-dashboard .analytics,
+.admin-dashboard .settings,
+.admin-dashboard .business-hours {
+  background: transparent;
+}
+
+.admin-dashboard .orders-grid,
+.admin-dashboard .menu-grid,
+.admin-dashboard .analytics-grid,
+.admin-dashboard .settings-grid {
+  gap: 1.5rem;
+}
+
+.admin-dashboard .order-card.detailed,
+.admin-dashboard .menu-item-card,
+.admin-dashboard .analytics-card,
+.admin-dashboard .settings-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.admin-dashboard .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-dashboard .section-header h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.125rem;
+}
+
+.admin-dashboard .variation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.admin-dashboard .variation-header label {
+  margin: 0;
+  font-weight: 600;
+  color: #111827;
+}
+
+.admin-dashboard .variation-empty {
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #6b7280;
+  border: 1px dashed #e5e7eb;
+}
+
+.admin-dashboard .variation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-dashboard .variation-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 0.8fr auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.admin-dashboard .variation-row input[type="text"],
+.admin-dashboard .variation-row input[type="number"] {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+}
+
+.admin-dashboard .variation-available {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
 .admin-header {
   background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
   color: white;
@@ -3222,6 +3533,31 @@ select.variation-dropdown option {
   color: #ff6b35;
   border-left-color: #ff6b35;
   font-weight: 600;
+}
+
+/* Business Hours Banner */
+.business-hours-banner {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  font-weight: 600;
+  border-bottom: 1px solid #fcd34d;
+}
+
+.closed-order-note {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 0.9rem;
 }
 
 .admin-content {
@@ -3655,6 +3991,242 @@ select.variation-dropdown option {
   justify-content: flex-end;
 }
 
+.admin-dashboard .menu-item-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+.admin-dashboard .menu-item-form .form-section {
+  padding: 0 1.5rem;
+}
+
+.admin-dashboard .menu-item-form .section-title {
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.75rem;
+}
+
+.admin-dashboard .menu-item-form .section-subtitle {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.admin-dashboard .menu-item-form .form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-dashboard .menu-item-form .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-dashboard .menu-item-form .form-field.full {
+  grid-column: 1 / -1;
+}
+
+.admin-dashboard .menu-item-form .toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.admin-dashboard .menu-item-form .field-hint {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.admin-dashboard .menu-item-form .tag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-dashboard .menu-item-form .tag-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.admin-dashboard .menu-item-form .tag-option.selected {
+  border-color: #ff6b35;
+  background: #fff3ec;
+  color: #c2410c;
+  font-weight: 600;
+}
+
+.admin-dashboard .menu-item-form .image-preview-frame {
+  border: 1px dashed #d1d5db;
+  border-radius: 12px;
+  background: #f9fafb;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.admin-dashboard .menu-item-form .image-preview-frame img {
+  max-width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.admin-dashboard .variation-header-row {
+  font-size: 0.8rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 768px) {
+  .admin-dashboard .menu-item-form .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Menu Availability (Restaurant Dashboard) */
+.menu-availability-toolbar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.menu-availability-search {
+  flex: 1;
+  min-width: 220px;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.menu-availability-filter {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 0.75rem;
+  font-size: 0.95rem;
+  min-width: 180px;
+  background: #ffffff;
+}
+
+.menu-availability-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.menu-availability-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.menu-availability-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.menu-availability-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.menu-availability-meta {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.menu-availability-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.menu-availability-toggle input {
+  width: 42px;
+  height: 22px;
+}
+
+.menu-availability-variations {
+  border-top: 1px dashed #e5e7eb;
+  padding-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.menu-availability-variation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.menu-availability-variation-name {
+  font-weight: 500;
+  color: #111827;
+}
+
+.menu-availability-variation-price {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.menu-item-unavailable {
+  opacity: 0.6;
+}
+
+.menu-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.menu-item-soldout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #dc2626;
+  color: #ffffff;
+}
+
 /* Analytics Styles */
 .analytics {
   display: flex;
@@ -3761,6 +4333,98 @@ select.variation-dropdown option {
   color: #2c3e50;
 }
 
+/* Business Hours Admin */
+.business-hours {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.business-hours-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.status-pill {
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-pill.open {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-pill.closed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.business-hours-notice {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.business-hours-grid {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.business-hours-row {
+  display: grid;
+  grid-template-columns: 140px 120px 1fr;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.business-hours-row:last-child {
+  border-bottom: none;
+}
+
+.business-hours-day {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.business-hours-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.business-hours-times {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.business-hours-times input[type="time"] {
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-size: 0.9rem;
+}
+
+.business-hours-times span {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
 .setting-item {
   display: flex;
   justify-content: space-between;
@@ -3814,6 +4478,19 @@ select.variation-dropdown option {
   }
   
   .menu-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-dashboard .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-dashboard .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-dashboard .variation-row {
     grid-template-columns: 1fr;
   }
   

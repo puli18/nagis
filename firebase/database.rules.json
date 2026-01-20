@@ -19,6 +19,10 @@
     "orderNumbers": {
       ".read": true,
       ".write": true
+    },
+    "businessHours": {
+      ".read": true,
+      ".write": true
     }
   }
 }
