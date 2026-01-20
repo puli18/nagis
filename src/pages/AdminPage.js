@@ -174,7 +174,7 @@ const AdminPage = () => {
     }
   };
 
-  const calculateStats = () => {
+  const calculateStats = useCallback(() => {
     const totalOrders = orders.length;
     const pendingOrders = orders.filter(order => order.status === 'pending').length;
     const completedOrders = orders.filter(order => order.status === 'completed').length;
@@ -192,11 +192,11 @@ const AdminPage = () => {
       menuItems: menuItems.length,
       categories: categories.length
     });
-  };
+  }, [orders, menuItems, categories]);
 
   useEffect(() => {
     calculateStats();
-  }, [orders, menuItems, categories]);
+  }, [calculateStats]);
 
   // Order management functions
   const updateOrderStatus = async (orderId, newStatus) => {
